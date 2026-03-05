@@ -1,0 +1,117 @@
+import { useState, type FormEvent } from 'react'
+import type { LoginResponse } from '../types'
+import { API_BASE_URL } from '../config'
+
+interface LoginPageProps {
+  onAuthSuccess: (data: LoginResponse) => void
+}
+
+export function LoginPage({ onAuthSuccess }: LoginPageProps) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [tiendaSlug, setTiendaSlug] = useState('')
+  const [loadingLogin, setLoadingLogin] = useState(false)
+  const [loginError, setLoginError] = useState<string | null>(null)
+
+  const handleLogin = async (event: FormEvent) => {
+    event.preventDefault()
+    setLoginError(null)
+
+    if (!email || !password || !tiendaSlug) {
+      setLoginError('Debes llenar todos los campos')
+      return
+    }
+
+    setLoadingLogin(true)
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, tiendaSlug }),
+      })
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null)
+        const message = body?.message ?? 'Error al iniciar sesión'
+        throw new Error(message)
+      }
+
+      const data = (await response.json()) as LoginResponse
+      onAuthSuccess(data)
+      setPassword('')
+    } catch (err) {
+      if (err instanceof Error) {
+        setLoginError(err.message)
+      } else {
+        setLoginError('Error desconocido')
+      }
+    } finally {
+      setLoadingLogin(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900/80 shadow-2xl shadow-emerald-500/10 p-8 space-y-6">
+        <div className="text-center space-y-2">
+          <p className="text-xs uppercase tracking-[0.25em] text-emerald-400">Tienda Multitenant</p>
+          <h1 className="text-2xl font-semibold text-slate-50">Iniciar sesión</h1>
+          <p className="text-sm text-slate-400">
+            Ingresa a tu panel usando el correo y la tienda.
+          </p>
+        </div>
+
+        <form className="space-y-4" onSubmit={handleLogin}>
+          <div>
+            <label className="block text-sm font-medium text-slate-200">Slug de la tienda</label>
+            <input
+              type="text"
+              value={tiendaSlug}
+              onChange={(e) => setTiendaSlug(e.target.value)}
+              placeholder="ej: mi-tienda"
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-200">Correo electrónico</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="tucorreo@ejemplo.com"
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-200">Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            />
+          </div>
+
+          {loginError && (
+            <p className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+              {loginError}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loadingLogin}
+            className="mt-2 w-full rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingLogin ? 'Ingresando...' : 'Ingresar'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
