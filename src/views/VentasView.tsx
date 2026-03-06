@@ -9,7 +9,6 @@ import {
   User,
   CreditCard,
   Plus,
-  Pencil,
   Trash2,
   Eye,
 } from 'lucide-react'
@@ -29,7 +28,7 @@ interface VentasViewProps {
   onRecargar: () => void
   onNuevaVenta: () => void
   onVer: (venta: VentaResumen) => void
-  onEditar: (venta: VentaResumen) => void
+  onCambiarEstado: (venta: VentaResumen, nuevoEstado: string) => void
   onEliminar: (venta: VentaResumen) => void
 }
 
@@ -51,9 +50,16 @@ export function VentasView({
   onRecargar,
   onNuevaVenta,
   onVer,
-  onEditar,
+  onCambiarEstado,
   onEliminar,
 }: VentasViewProps) {
+  const ESTADOS_VENTA = [
+    { value: 'Pendiente', label: 'Pendiente' },
+    { value: 'EnProceso', label: 'En proceso' },
+    { value: 'Envio', label: 'En envío' },
+    { value: 'Completado', label: 'Completado' },
+    { value: 'Cancelado', label: 'Cancelado' },
+  ]
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRango, setFilterRango] = useState<RangoFecha>('hoy')
   const [currentPage, setCurrentPage] = useState(1)
@@ -240,6 +246,9 @@ export function VentasView({
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">
                   Pago
                 </th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">
+                  Estado
+                </th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">
                   Total
                 </th>
@@ -254,7 +263,7 @@ export function VentasView({
             <tbody className={`divide-y ${dm ? 'divide-slate-800' : 'divide-gray-100'}`}>
               {ventasFiltradas.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={6} className={`px-6 py-16 text-center ${textMuted}`}>
+                  <td colSpan={8} className={`px-6 py-16 text-center ${textMuted}`}>
                     <div className="flex flex-col items-center gap-3">
                       <TrendingUp size={40} className="opacity-20" />
                       <p className="text-base font-medium">No se encontraron ventas.</p>
@@ -297,6 +306,30 @@ export function VentasView({
                         <span>{v.MetodoPago ?? '—'}</span>
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={v.Estado ?? 'Pendiente'}
+                        onChange={(e) => onCambiarEstado(v, e.target.value)}
+                        title="Cambiar estado"
+                        className={`min-w-[7rem] rounded-lg border px-2 py-1 text-[11px] font-semibold cursor-pointer focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                          (v.Estado ?? 'Pendiente') === 'Completado'
+                            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                            : (v.Estado ?? 'Pendiente') === 'Cancelado'
+                              ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30'
+                              : (v.Estado ?? 'Pendiente') === 'EnProceso' || (v.Estado ?? '') === 'Envio'
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                : dm
+                                  ? 'bg-slate-700/50 text-slate-300 border-slate-600'
+                                  : 'bg-gray-100 text-gray-700 border-gray-200'
+                        }`}
+                      >
+                        {ESTADOS_VENTA.map((e) => (
+                          <option key={e.value} value={e.value}>
+                            {e.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-bold">
                       <span className={textPrimary}>
                         {v.Total.toLocaleString('es-CO', {
@@ -324,18 +357,6 @@ export function VentasView({
                           title="Ver detalle"
                         >
                           <Eye size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onEditar(v)}
-                          className={`p-1.5 rounded-lg transition-all ${
-                            dm
-                              ? 'hover:bg-slate-800 text-slate-400 hover:text-emerald-400'
-                              : 'hover:bg-gray-100 text-gray-400 hover:text-emerald-500'
-                          } hover:scale-110`}
-                          title="Editar venta"
-                        >
-                          <Pencil size={16} />
                         </button>
                         <button
                           type="button"

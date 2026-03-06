@@ -32,6 +32,7 @@ interface ProductosViewProps {
   onNuevo: () => void
   onImportar: () => void
   onRecargar: () => void
+  onVer: (producto: Producto) => void
   onEditar: (producto: Producto) => void
   onEliminar: (producto: Producto) => void
 }
@@ -50,6 +51,7 @@ export function ProductosView({
   onNuevo,
   onImportar,
   onRecargar,
+  onVer,
   onEditar,
   onEliminar,
 }: ProductosViewProps) {
@@ -308,14 +310,36 @@ export function ProductosView({
                   <td className="px-6 py-4 whitespace-nowrap text-right text-[11px] font-mono">
                     <div className="flex flex-col items-end gap-1">
                       <span className="font-bold">
-                        {prod.PrecioDetal.toLocaleString('es-CO', {
-                          style: 'currency',
-                          currency: 'COP',
-                          maximumFractionDigits: 0,
-                        })}{' '}
-                        <span className="text-[10px] font-semibold uppercase opacity-60">
-                          detal
-                        </span>
+                        {prod.TieneOferta && prod.PrecioOferta != null ? (
+                          <>
+                            <span className="line-through opacity-60 mr-1">
+                              {prod.PrecioDetal.toLocaleString('es-CO', {
+                                style: 'currency',
+                                currency: 'COP',
+                                maximumFractionDigits: 0,
+                              })}
+                            </span>
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              {prod.PrecioOferta.toLocaleString('es-CO', {
+                                style: 'currency',
+                                currency: 'COP',
+                                maximumFractionDigits: 0,
+                              })}{' '}
+                              <span className="text-[10px] font-semibold uppercase">oferta</span>
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {prod.PrecioDetal.toLocaleString('es-CO', {
+                              style: 'currency',
+                              currency: 'COP',
+                              maximumFractionDigits: 0,
+                            })}{' '}
+                            <span className="text-[10px] font-semibold uppercase opacity-60">
+                              detal
+                            </span>
+                          </>
+                        )}
                       </span>
                       <span className={prod.PrecioMayor ? 'opacity-80' : 'opacity-40 italic'}>
                         {prod.PrecioMayor != null
@@ -390,6 +414,13 @@ export function ProductosView({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => onVer(prod)}
+                        title="Ver detalle"
+                        className={`p-2.5 rounded-lg transition-all ${dm ? 'hover:bg-slate-800 text-slate-400 hover:text-blue-400' : 'hover:bg-gray-100 text-gray-400 hover:text-blue-500'} hover:scale-110`}
+                      >
+                        <Eye size={18} />
+                      </button>
                       <button
                         onClick={() => onEditar(prod)}
                         title="Editar producto"

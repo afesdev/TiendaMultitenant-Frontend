@@ -225,7 +225,7 @@ export function VentaDetalleView({
               </div>
             </div>
 
-            {/* Pago y repartidor */}
+            {/* Pago, estado y repartidor */}
             <div className={`rounded-2xl border px-4 py-3.5 ${surface}`}>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 rounded-lg bg-emerald-500/10 flex items-center justify-center">
@@ -236,6 +236,12 @@ export function VentaDetalleView({
                 </p>
               </div>
               <p className={`text-sm font-semibold ${textPrimary}`}>{cab.MetodoPago ?? '—'}</p>
+              <div className="flex items-center gap-1 mt-1">
+                <Tag size={11} className={textMuted} />
+                <p className={`text-xs ${textSecondary}`}>
+                  Estado: <span className="font-semibold">{cab.Estado ?? 'Pendiente'}</span>
+                </p>
+              </div>
               <div className="flex items-center gap-1 mt-1">
                 <Truck size={11} className={textMuted} />
                 <p className={`text-xs ${textSecondary}`}>
@@ -290,11 +296,14 @@ export function VentaDetalleView({
                       <th className={`px-4 py-2.5 text-left font-semibold ${textMuted}`}>
                         Producto
                       </th>
+                      <th className={`px-4 py-2.5 text-left font-semibold ${textMuted}`}>
+                        Variante
+                      </th>
                       <th className={`px-4 py-2.5 text-center font-semibold ${textMuted}`}>
                         Cant.
                       </th>
                       <th className={`px-4 py-2.5 text-right font-semibold ${textMuted}`}>
-                        P. Unitario
+                        Precio
                       </th>
                       <th className={`px-4 py-2.5 text-right font-semibold ${textMuted}`}>
                         Importe
@@ -344,20 +353,37 @@ export function VentaDetalleView({
                                   {l.CodigoBarras ? ` · CB: ${l.CodigoBarras}` : ''}
                                 </span>
                               )}
-                              {l.VarianteAtributo && l.VarianteValor && (
-                                <span
-                                  className="inline-flex items-center gap-1 self-start rounded-full px-2 py-0.5 text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                >
-                                  {l.VarianteAtributo}: {l.VarianteValor}
-                                  {l.VarianteCodigoSKU && (
-                                    <span className="opacity-80">
-                                      · SKU {l.VarianteCodigoSKU}
-                                    </span>
-                                  )}
-                                </span>
-                              )}
                             </div>
                           </div>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {l.VarianteAtributo && l.VarianteValor ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-medium ${
+                                  dm
+                                    ? 'bg-emerald-500/20 text-emerald-400'
+                                    : 'bg-emerald-500/15 text-emerald-600'
+                                }`}
+                              >
+                                {l.VarianteAtributo}: {l.VarianteValor}
+                                {l.VarianteCodigoSKU && (
+                                  <span className="opacity-80 font-mono">
+                                    · {l.VarianteCodigoSKU}
+                                  </span>
+                                )}
+                              </span>
+                              {typeof l.VariantePrecioAdicional === 'number' &&
+                                l.VariantePrecioAdicional !== 0 && (
+                                  <span className={`text-[10px] ${textSecondary}`}>
+                                    + {fmt(l.VariantePrecioAdicional)}
+                                  </span>
+                                )}
+                            </div>
+                          ) : (
+                            <span className={textMuted}>—</span>
+                          )}
                         </td>
 
                         <td className="px-4 py-3 text-center">
@@ -373,7 +399,28 @@ export function VentaDetalleView({
                         </td>
 
                         <td className={`px-4 py-3 text-right tabular-nums ${textSecondary}`}>
-                          {fmt(l.PrecioUnitario)}
+                          <div className="flex flex-col items-end gap-0.5">
+                            {(() => {
+                              const adicional = l.VariantePrecioAdicional ?? 0
+                              const base = l.PrecioUnitario - adicional
+                              const tieneVarianteConPrecio = adicional > 0
+                              return (
+                                <>
+                                  <span>Base (detal): {fmt(base)}</span>
+                                  {tieneVarianteConPrecio && (
+                                    <>
+                                      <span className="text-[10px] opacity-80">
+                                        + Variante: {fmt(adicional)}
+                                      </span>
+                                      <span className={`font-semibold ${textPrimary}`}>
+                                        Total: {fmt(l.PrecioUnitario)}
+                                      </span>
+                                    </>
+                                  )}
+                                </>
+                              )
+                            })()}
+                          </div>
                         </td>
 
                         <td className={`px-4 py-3 text-right tabular-nums font-bold ${textPrimary}`}>

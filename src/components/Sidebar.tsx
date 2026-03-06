@@ -12,6 +12,8 @@ import {
   Truck,
   Layers,
   Activity,
+  Bookmark,
+  Percent,
 } from 'lucide-react'
 
 type LucideIcon = React.ComponentType<{ size?: number; className?: string }>
@@ -30,6 +32,8 @@ const NAV_SECTIONS: NavSection[] = [
       { key: 'proveedores', label: 'Proveedores', Icon: Truck },
       { key: 'clientes', label: 'Clientes', Icon: Users },
       { key: 'ventas', label: 'Ventas', Icon: TrendingUp },
+      { key: 'apartados', label: 'Apartados', Icon: Bookmark },
+      { key: 'promociones', label: 'Promociones', Icon: Percent },
       { key: 'movimientos', label: 'Movimientos', Icon: Activity },
       { key: 'repartidores', label: 'Repartidores', Icon: Bike },
     ],

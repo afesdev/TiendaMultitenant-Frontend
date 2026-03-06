@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { User, Package, Layers, CreditCard } from 'lucide-react'
+import { API_BASE_URL } from '../config'
 import type {
   Cliente,
   NuevaVentaPayload,
@@ -30,6 +31,7 @@ interface VentaFormViewProps {
   variantes: ProductoVariante[]
   clientes: Cliente[]
   repartidores: Repartidor[]
+  tiendaSlug: string
   loading: boolean
   onBack: () => void
   onSubmit: (payload: NuevaVentaPayload) => Promise<void> | void
@@ -46,6 +48,7 @@ export function VentaFormView({
   variantes,
   clientes,
   repartidores,
+  tiendaSlug,
   loading,
   onBack,
   onSubmit,
@@ -103,7 +106,7 @@ export function VentaFormView({
   }, [variantes, productoIdSeleccionado])
 
   useEffect(() => {
-    if (!productoIdSeleccionado) return
+    if (!productoIdSeleccionado || !tiendaSlug) return
     const producto = productos.find((p) => p.Id === productoIdSeleccionado)
     if (!producto) return
 
@@ -116,9 +119,37 @@ export function VentaFormView({
       (v) => v.Id === varianteIdSeleccionada,
     )
     const adicional = varianteSeleccionada?.PrecioAdicional ?? 0
+    const precioBase = base + adicional
 
-    setPrecioUnitario(base + adicional)
-  }, [productoIdSeleccionado, varianteIdSeleccionada, tipoVenta, productos, variantesDelProducto])
+    setPrecioUnitario(precioBase)
+    const calcularPrecioConOferta = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/public/promociones/calcular`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tiendaSlug,
+            items: [
+              {
+                productoId: productoIdSeleccionado,
+                varianteId: varianteIdSeleccionada ?? null,
+                cantidad,
+                precioBase,
+              },
+            ],
+          }),
+        })
+        if (res.ok) {
+          const data = (await res.json()) as Array<{ precioFinal: number }>
+          const final = data[0]?.precioFinal
+          if (typeof final === 'number') setPrecioUnitario(final)
+        }
+      } catch {
+        // Mantener precioBase ya establecido
+      }
+    }
+    void calcularPrecioConOferta()
+  }, [productoIdSeleccionado, varianteIdSeleccionada, tipoVenta, cantidad, productos, variantesDelProducto, tiendaSlug])
 
   const subtotal = lineas.reduce(
     (acc, l) => acc + l.cantidad * l.precioUnitario,
@@ -206,8 +237,59 @@ export function VentaFormView({
     setVarianteIdSeleccionada(null)
   }
 
-  const handleActualizarCantidad = (index: number, nuevaCantidad: number) => {
+  const handleActualizarCantidad = async (index: number, nuevaCantidad: number) => {
     if (nuevaCantidad <= 0) return
+    const linea = lineas[index]
+    if (!linea || !tiendaSlug) {
+      setLineas((prev) =>
+        prev.map((l, i) => (i === index ? { ...l, cantidad: nuevaCantidad } : l)),
+      )
+      return
+    }
+    const producto = productos.find((p) => p.Id === linea.productoId)
+    if (!producto) {
+      setLineas((prev) =>
+        prev.map((l, i) => (i === index ? { ...l, cantidad: nuevaCantidad } : l)),
+      )
+      return
+    }
+    let precioBase =
+      tipoVenta === 'MAYORISTA' && producto.PrecioMayor != null
+        ? producto.PrecioMayor
+        : producto.PrecioDetal
+    if (linea.varianteId) {
+      const vari = variantes.find((v) => v.Id === linea.varianteId)
+      precioBase += vari?.PrecioAdicional ?? 0
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/promociones/calcular`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tiendaSlug,
+          items: [
+            {
+              productoId: linea.productoId,
+              varianteId: linea.varianteId ?? null,
+              cantidad: nuevaCantidad,
+              precioBase,
+            },
+          ],
+        }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as Array<{ precioFinal: number }>
+        const precioFinal = data[0]?.precioFinal ?? precioBase
+        setLineas((prev) =>
+          prev.map((l, i) =>
+            i === index ? { ...l, cantidad: nuevaCantidad, precioUnitario: precioFinal } : l,
+          ),
+        )
+        return
+      }
+    } catch {
+      // ignorar
+    }
     setLineas((prev) =>
       prev.map((l, i) => (i === index ? { ...l, cantidad: nuevaCantidad } : l)),
     )

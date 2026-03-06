@@ -5,11 +5,12 @@ import { VarianteModal } from '../components/VarianteModal'
 import { CategoriaModal } from '../components/CategoriaModal'
 import { ProveedorModal } from '../components/ProveedorModal'
 import { RepartidorModal } from '../components/RepartidorModal'
-import { VentaEditModal } from '../components/VentaEditModal'
 import { VentaDetalleView } from '../components/VentaViewModal'
+import { ApartadoDetalleView } from '../components/ApartadoView'
 import { ClienteImportModal } from '../components/ClienteImportModal'
 import { ClienteModal } from '../components/ClienteModal'
 import { ProductoImportModal } from '../components/ProductoImportModal'
+import { ProductoDetalleView } from '../components/ProductoDetalleView'
 import { DashboardView } from '../views/DashboardView'
 import { CategoriasView } from '../views/CategoriasView'
 import { ProductosView } from '../views/ProductosView'
@@ -20,6 +21,10 @@ import { RepartidoresView } from '../views/RepartidoresView'
 import { ClientesView } from '../views/ClientesView'
 import { VentasView } from '../views/VentasView'
 import { VentaFormView } from '../views/VentaFormView'
+import { ApartadosView } from '../views/ApartadosView'
+import { ApartadoFormView } from '../views/ApartadoFormView'
+import { PromocionesView } from '../views/PromocionesView'
+import { PromocionFormView } from '../views/PromocionFormView'
 import { MovimientosInventarioView } from '../views/MovimientosInventarioView'
 import { TiendaView } from '../views/TiendaView'
 import type { AuthTienda, AuthUser } from '../types'
@@ -33,6 +38,8 @@ import {
   useVariantes,
   useVentas,
   useProductos,
+  useApartados,
+  usePromociones,
 } from '../hooks'
 
 interface DashboardPageProps {
@@ -51,9 +58,16 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
       return 'dashboard'
     }
   })
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('sidebarCollapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true')
+  const [promoProductoInicialId, setPromoProductoInicialId] = useState<number | null>(null)
 
   const { tiendaConfig, setTiendaConfig } = useTiendaConfig(token)
   const categorias = useCategorias(token)
@@ -64,6 +78,8 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
   const variantes = useVariantes(token)
   const ventas = useVentas(token)
   const productos = useProductos(token, { onVariantesReload: variantes.cargar })
+  const apartados = useApartados(token)
+  const promociones = usePromociones(token)
 
   const handleToggleDarkMode = () => {
     setDarkMode((prev) => {
@@ -80,6 +96,14 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
       // ignore
     }
   }, [activePage])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sidebarCollapsed', String(sidebarCollapsed))
+    } catch {
+      // ignore
+    }
+  }, [sidebarCollapsed])
 
   useEffect(() => {
     if (!token) return
@@ -102,6 +126,17 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
       void productos.cargar()
       void variantes.cargar()
       void repartidores.cargar()
+    }
+    if (activePage === 'apartados') {
+      void apartados.cargar()
+      void clientes.cargar()
+      void productos.cargar()
+      void variantes.cargar()
+    }
+    if (activePage === 'promociones') {
+      void promociones.cargar()
+      void productos.cargar()
+      void variantes.cargar()
     }
     if (activePage === 'movimientos') void movimientos.cargar()
     if (activePage === 'dashboard') {
@@ -205,8 +240,8 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
             />
           )}
 
-          {/* Productos */}
-          {activePage === 'productos' && !productos.formOpen && (
+          {/* Productos - listado */}
+          {activePage === 'productos' && !productos.formOpen && !productos.detalleOpen && (
             <ProductosView
               productos={productos.productos}
               loading={productos.loading}
@@ -221,8 +256,27 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               onNuevo={productos.abrirNuevo}
               onImportar={productos.abrirImportModal}
               onRecargar={() => void productos.cargar()}
+              onVer={productos.abrirVer}
               onEditar={productos.abrirEditar}
               onEliminar={productos.eliminar}
+            />
+          )}
+
+          {/* Productos - detalle */}
+          {activePage === 'productos' && productos.detalleOpen && productos.viendo && (
+            <ProductoDetalleView
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              btnSecondary={btnSecondary}
+              token={token}
+              productoId={productos.viendo.Id}
+              onVolver={() => productos.setDetalleOpen(false)}
+              onEditar={() => {
+                productos.setDetalleOpen(false)
+                void productos.abrirEditar(productos.viendo!)
+              }}
             />
           )}
 
@@ -268,6 +322,39 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               setProdStockActual={productos.setStockActual}
               setProdVisible={productos.setVisible}
               onSubmit={productos.guardar}
+              {
+                ...({
+                  onCrearPromocionForProducto: () => {
+                    // Activar bloque de promoción en línea sin cambiar de página
+                    productos.setPromoInlineActiva(true)
+                    if (!productos.promoNombre) {
+                      productos.setPromoNombre(`Promo ${productos.nombre || ''}`.trim())
+                    }
+                  },
+                  promoInlineActiva: productos.promoInlineActiva,
+                  setPromoInlineActiva: productos.setPromoInlineActiva,
+                  promoNombre: productos.promoNombre,
+                  setPromoNombre: productos.setPromoNombre,
+                  promoDescripcion: productos.promoDescripcion,
+                  setPromoDescripcion: productos.setPromoDescripcion,
+                  promoTipoDescuento: productos.promoTipoDescuento,
+                  setPromoTipoDescuento: productos.setPromoTipoDescuento,
+                  promoValorDescuento: productos.promoValorDescuento,
+                  setPromoValorDescuento: productos.setPromoValorDescuento,
+                  promoMinCantidad: productos.promoMinCantidad,
+                  setPromoMinCantidad: productos.setPromoMinCantidad,
+                  promoMinTotal: productos.promoMinTotal,
+                  setPromoMinTotal: productos.setPromoMinTotal,
+                  promoAplicaSobre: productos.promoAplicaSobre,
+                  setPromoAplicaSobre: productos.setPromoAplicaSobre,
+                  promoFechaInicio: productos.promoFechaInicio,
+                  setPromoFechaInicio: productos.setPromoFechaInicio,
+                  promoFechaFin: productos.promoFechaFin,
+                  setPromoFechaFin: productos.setPromoFechaFin,
+                  promoActiva: productos.promoActiva,
+                  setPromoActiva: productos.setPromoActiva,
+                } as any)
+              }
             />
           )}
 
@@ -306,7 +393,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               onRecargar={() => void ventas.cargar()}
               onNuevaVenta={() => ventas.setFormOpen(true)}
               onVer={ventas.abrirVer}
-              onEditar={ventas.abrirEditar}
+              onCambiarEstado={ventas.actualizarEstado}
               onEliminar={ventas.eliminar}
             />
           )}
@@ -323,6 +410,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               variantes={variantes.variantes}
               clientes={clientes.clientes}
               repartidores={repartidores.repartidores}
+              tiendaSlug={tienda.slug}
               loading={
                 ventas.creando ||
                 clientes.loading ||
@@ -350,6 +438,104 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               token={token}
               ventaId={ventas.viendo.Id}
               onVolver={() => ventas.setDetalleOpen(false)}
+            />
+          )}
+
+          {/* Apartados */}
+          {activePage === 'apartados' && !apartados.formOpen && !apartados.detalleOpen && (
+            <ApartadosView
+              apartados={apartados.apartados}
+              loading={apartados.loading}
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              tableBorder={tableBorder}
+              tableHead={tableHead}
+              tableRow={tableRow}
+              btnSecondary={btnSecondary}
+              onRecargar={() => void apartados.cargar()}
+              onNuevoApartado={() => apartados.setFormOpen(true)}
+              onVer={apartados.abrirVer}
+              onCambiarEstado={apartados.actualizarEstado}
+              onEliminar={apartados.eliminar}
+            />
+          )}
+
+          {activePage === 'apartados' && apartados.formOpen && (
+            <ApartadoFormView
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              btnSecondary={btnSecondary}
+              clientes={clientes.clientes}
+              productos={productos.productos}
+              variantes={variantes.variantes}
+              loading={
+                apartados.creando ||
+                clientes.loading ||
+                productos.loading ||
+                variantes.loading
+              }
+              onBack={() => apartados.setFormOpen(false)}
+              onSubmit={apartados.crear}
+            />
+          )}
+
+          {activePage === 'apartados' && apartados.detalleOpen && apartados.viendo && (
+            <ApartadoDetalleView
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              btnSecondary={btnSecondary}
+              token={token}
+              apartadoId={apartados.viendo.Id}
+              onVolver={() => apartados.setDetalleOpen(false)}
+            />
+          )}
+
+          {/* Promociones */}
+          {activePage === 'promociones' && !promociones.formOpen && (
+            <PromocionesView
+              promociones={promociones.promociones}
+              loading={promociones.loading}
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              tableBorder={tableBorder}
+              tableHead={tableHead}
+              tableRow={tableRow}
+              btnSecondary={btnSecondary}
+              onRecargar={() => void promociones.cargar()}
+              onNueva={() => {
+                setPromoProductoInicialId(null)
+                promociones.abrirNueva()
+              }}
+              onEditar={(p) => {
+                setPromoProductoInicialId(null)
+                promociones.abrirEditar(p)
+              }}
+              onEliminar={promociones.eliminar}
+            />
+          )}
+
+          {activePage === 'promociones' && promociones.formOpen && (
+            <PromocionFormView
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              btnSecondary={btnSecondary}
+              productos={productos.productos}
+              variantes={variantes.variantes}
+              loading={promociones.guardando || productos.loading || variantes.loading}
+              editando={promociones.editando}
+              productoPreseleccionadoId={promoProductoInicialId}
+              onBack={() => promociones.setFormOpen(false)}
+              onSubmit={promociones.crear}
             />
           )}
 
@@ -447,9 +633,6 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               onEliminar={clientes.eliminar}
             />
           )}
-
-          {/* Placeholder para otras páginas */}
-          {/* Vista por defecto para páginas no implementadas eliminada (antes: "Módulo en construcción") */}
         </main>
       </div>
 
@@ -494,19 +677,6 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
         setDisponible={repartidores.setDisponible}
         setActivo={repartidores.setActivo}
         onSubmit={repartidores.guardar}
-      />
-
-      <VentaEditModal
-        open={ventas.editModalOpen}
-        dm={dm}
-        textPrimary={textPrimary}
-        textSecondary={textSecondary}
-        textMuted={textMuted}
-        btnSecondary={btnSecondary}
-        token={token}
-        venta={ventas.editando}
-        onClose={() => ventas.setEditModalOpen(false)}
-        onSaved={ventas.cargar}
       />
 
       <ProveedorModal

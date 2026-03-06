@@ -14,6 +14,7 @@ import {
   Star,
   Download,
   Barcode,
+  Percent,
 } from 'lucide-react'
 import type { FormEvent } from 'react'
 import type { Categoria, Producto, ProductoImagenForm, ProductoVarianteForm, Proveedor } from '../types'
@@ -82,6 +83,30 @@ interface ProductoFormViewProps {
   onRemoveVariante: (index: number) => void
   onUpdateVariante: (index: number, field: keyof ProductoVarianteForm, value: string | number) => void
   onSubmit: (e: FormEvent) => void
+  onCrearPromocionForProducto?: (productoId: number) => void
+  // Configuración de promoción en línea (opcional)
+  promoInlineActiva?: boolean
+  setPromoInlineActiva?: (v: boolean) => void
+  promoNombre?: string
+  setPromoNombre?: (v: string) => void
+  promoDescripcion?: string
+  setPromoDescripcion?: (v: string) => void
+  promoTipoDescuento?: 'PORCENTAJE' | 'FIJO'
+  setPromoTipoDescuento?: (v: 'PORCENTAJE' | 'FIJO') => void
+  promoValorDescuento?: number
+  setPromoValorDescuento?: (v: number) => void
+  promoMinCantidad?: number | null
+  setPromoMinCantidad?: (v: number | null) => void
+  promoMinTotal?: number | null
+  setPromoMinTotal?: (v: number | null) => void
+  promoAplicaSobre?: string | null
+  setPromoAplicaSobre?: (v: string | null) => void
+  promoFechaInicio?: string
+  setPromoFechaInicio?: (v: string) => void
+  promoFechaFin?: string
+  setPromoFechaFin?: (v: string) => void
+  promoActiva?: boolean
+  setPromoActiva?: (v: boolean) => void
 }
 
 export function ProductoFormView({
@@ -125,6 +150,29 @@ export function ProductoFormView({
   onRemoveVariante,
   onUpdateVariante,
   onSubmit,
+  onCrearPromocionForProducto,
+  promoInlineActiva,
+  setPromoInlineActiva,
+  promoNombre,
+  setPromoNombre,
+  promoDescripcion,
+  setPromoDescripcion,
+  promoTipoDescuento,
+  setPromoTipoDescuento,
+  promoValorDescuento,
+  setPromoValorDescuento,
+  promoMinCantidad,
+  setPromoMinCantidad,
+  promoMinTotal,
+  setPromoMinTotal,
+  promoAplicaSobre,
+  setPromoAplicaSobre,
+  promoFechaInicio,
+  setPromoFechaInicio,
+  promoFechaFin,
+  setPromoFechaFin,
+  promoActiva,
+  setPromoActiva,
 }: ProductoFormViewProps) {
   const [activeSection, setActiveSection] = useState<SectionId>('general')
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null)
@@ -228,6 +276,16 @@ export function ProductoFormView({
               >
                 Cancelar
               </button>
+              {productoEditando && onCrearPromocionForProducto && (
+                <button
+                  type="button"
+                  onClick={() => onCrearPromocionForProducto(productoEditando.Id)}
+                  className="hidden sm:inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-500/60 text-sm font-semibold text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                >
+                  <DollarSign size={16} />
+                  <span>Crear promoción</span>
+                </button>
+              )}
               <button
                 form="producto-form"
                 type="submit"
@@ -321,32 +379,229 @@ export function ProductoFormView({
                 <div>
                   <label className={labelClass(textPrimary)}>Precio venta</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                    <input type="number" value={prodPrecioDetal} onChange={(e) => setProdPrecioDetal(Number(e.target.value) || 0)} className={`${inputClass(dm)} pl-8`} min={0} required />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      value={prodPrecioDetal}
+                      onChange={(e) => setProdPrecioDetal(Number(e.target.value) || 0)}
+                      className={`${inputClass(dm)} pl-8`}
+                      min={0}
+                      required
+                    />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass(textPrimary)}>Precio mayor</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                    <input type="number" value={prodPrecioMayor ?? ''} onChange={(e) => setProdPrecioMayor(e.target.value === '' ? null : Number(e.target.value) || 0)} className={`${inputClass(dm)} pl-8`} min={0} />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      value={prodPrecioMayor ?? ''}
+                      onChange={(e) =>
+                        setProdPrecioMayor(
+                          e.target.value === '' ? null : Number(e.target.value) || 0,
+                        )
+                      }
+                      className={`${inputClass(dm)} pl-8`}
+                      min={0}
+                    />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass(textPrimary)}>Costo</label>
                   <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">$</span>
-                    <input type="number" value={prodCosto} onChange={(e) => setProdCosto(Number(e.target.value) || 0)} className={`${inputClass(dm)} pl-8`} min={0} />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      value={prodCosto}
+                      onChange={(e) => setProdCosto(Number(e.target.value) || 0)}
+                      className={`${inputClass(dm)} pl-8`}
+                      min={0}
+                    />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass(textPrimary)}>Stock inicial</label>
                   <div className="relative">
-                    <Box className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input type="number" value={prodStockActual} onChange={(e) => setProdStockActual(Number(e.target.value) || 0)} className={`${inputClass(dm)} pl-10`} min={0} />
+                    <Box
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                      size={18}
+                    />
+                    <input
+                      type="number"
+                      value={prodStockActual}
+                      onChange={(e) => setProdStockActual(Number(e.target.value) || 0)}
+                      className={`${inputClass(dm)} pl-10`}
+                      min={0}
+                    />
                   </div>
                 </div>
               </div>
+
+              {(onCrearPromocionForProducto || promoInlineActiva) && (
+                <div
+                  className={`mt-4 rounded-2xl border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
+                    dm ? 'border-emerald-900/60 bg-emerald-950/40' : 'border-emerald-100 bg-emerald-50'
+                  }`}
+                >
+                  <div className="space-y-3 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                        <Percent size={16} />
+                      </div>
+                      <p className={`text-sm font-bold ${textPrimary}`}>
+                        Crear promoción para este producto
+                      </p>
+                    </div>
+                    <p className={`text-xs sm:text-sm ${textSecondary}`}>
+                      Si activas esta opción, al guardar el producto se creará automáticamente una
+                      promoción con estos datos, sin salir de este formulario.
+                    </p>
+                    <label className="inline-flex items-center gap-2 mt-1">
+                      <input
+                        type="checkbox"
+                        checked={!!promoInlineActiva}
+                        onChange={(e) => setPromoInlineActiva?.(e.target.checked)}
+                        className="h-4 w-4 rounded border-emerald-400 text-emerald-500 focus:ring-emerald-500"
+                      />
+                      <span className={`text-xs sm:text-sm ${textPrimary}`}>
+                        Activar promoción para este producto
+                      </span>
+                    </label>
+
+                    {promoInlineActiva && (
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelClass(textPrimary)}>Nombre de la promoción</label>
+                          <input
+                            type="text"
+                            value={promoNombre ?? ''}
+                            onChange={(e) => setPromoNombre?.(e.target.value)}
+                            className={inputClass(dm)}
+                            placeholder={`Ej. Promo ${prodNombre || 'producto'}`}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass(textPrimary)}>Tipo / Valor</label>
+                          <div className="flex gap-2">
+                            <select
+                              value={promoTipoDescuento ?? 'PORCENTAJE'}
+                              onChange={(e) =>
+                                setPromoTipoDescuento?.(
+                                  (e.target.value as 'PORCENTAJE' | 'FIJO') ?? 'PORCENTAJE',
+                                )
+                              }
+                              className="w-28 rounded-xl border px-3 py-2 text-sm bg-white/90 dark:bg-slate-900/70 border-emerald-200 text-emerald-700 dark:text-emerald-300"
+                            >
+                              <option value="PORCENTAJE">% OFF</option>
+                              <option value="FIJO">$ fijo</option>
+                            </select>
+                            <input
+                              type="number"
+                              min={0}
+                              value={promoValorDescuento ?? 0}
+                              onChange={(e) =>
+                                setPromoValorDescuento?.(Number(e.target.value) || 0)
+                              }
+                              className={inputClass(dm)}
+                              placeholder="Valor del descuento"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={labelClass(textPrimary)}>Vigencia desde</label>
+                          <input
+                            type="date"
+                            value={promoFechaInicio ?? ''}
+                            onChange={(e) => setPromoFechaInicio?.(e.target.value)}
+                            className={inputClass(dm)}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass(textPrimary)}>Vigencia hasta</label>
+                          <input
+                            type="date"
+                            value={promoFechaFin ?? ''}
+                            onChange={(e) => setPromoFechaFin?.(e.target.value)}
+                            className={inputClass(dm)}
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass(textPrimary)}>Aplica sobre</label>
+                          <select
+                            value={promoAplicaSobre ?? 'DETAL'}
+                            onChange={(e) => setPromoAplicaSobre?.(e.target.value || null)}
+                            className={inputClass(dm)}
+                          >
+                            <option value="DETAL">Precio detal</option>
+                            <option value="MAYOR">Precio mayor</option>
+                            <option value="AMBOS">Ambos</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className={labelClass(textPrimary)}>Mín. cantidad</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={promoMinCantidad ?? ''}
+                              onChange={(e) =>
+                                setPromoMinCantidad?.(
+                                  e.target.value === '' ? null : Number(e.target.value) || 0,
+                                )
+                              }
+                              className={inputClass(dm)}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                          <div>
+                            <label className={labelClass(textPrimary)}>Mín. total</label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={promoMinTotal ?? ''}
+                              onChange={(e) =>
+                                setPromoMinTotal?.(
+                                  e.target.value === '' ? null : Number(e.target.value) || 0,
+                                )
+                              }
+                              className={inputClass(dm)}
+                              placeholder="Opcional"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="checkbox"
+                            checked={promoActiva ?? true}
+                            onChange={(e) => setPromoActiva?.(e.target.checked)}
+                            className="h-4 w-4 rounded border-emerald-400 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <span className={`text-xs sm:text-sm ${textSecondary}`}>
+                            Promoción activa al guardar
+                          </span>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className={labelClass(textPrimary)}>Descripción (opcional)</label>
+                          <textarea
+                            value={promoDescripcion ?? ''}
+                            onChange={(e) => setPromoDescripcion?.(e.target.value)}
+                            rows={2}
+                            className={`${inputClass(dm)} resize-none`}
+                            placeholder="Texto que describa la promoción."
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
           )}
 

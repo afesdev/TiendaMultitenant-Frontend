@@ -39,7 +39,16 @@ export function VentaEditModal({
   const [tipoDescuento, setTipoDescuento] = useState<'FIJO' | 'PORCENTAJE'>('FIJO')
   const [descuentoInput, setDescuentoInput] = useState(0)
   const [observacion, setObservacion] = useState('')
+  const [estado, setEstado] = useState<string>('Pendiente')
   const [submitting, setSubmitting] = useState(false)
+
+  const ESTADOS_VENTA = [
+    { value: 'Pendiente', label: 'Pendiente' },
+    { value: 'EnProceso', label: 'En proceso' },
+    { value: 'Envio', label: 'En envío' },
+    { value: 'Completado', label: 'Completado' },
+    { value: 'Cancelado', label: 'Cancelado' },
+  ] as const
 
   useEffect(() => {
     if (open && venta) {
@@ -47,6 +56,7 @@ export function VentaEditModal({
       setTipoEntrega((venta.TipoEntrega as any) || 'TIENDA')
       setMetodoPago((venta.MetodoPago as any) || 'EFECTIVO')
       setObservacion(venta.Observacion ?? '')
+      setEstado(venta.Estado ?? 'Pendiente')
       setTipoDescuento('FIJO')
       setDescuentoInput(venta.DescuentoTotal ?? 0)
     }
@@ -84,6 +94,7 @@ export function VentaEditModal({
           metodoPago,
           observacion: observacion.trim() || undefined,
           descuentoTotal: descuentoAplicado,
+          estado,
         }),
       })
 
@@ -182,6 +193,27 @@ export function VentaEditModal({
                 <option value="DOMICILIO">Domicilio</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className={`block text-xs font-semibold mb-1 ${textPrimary}`}>
+              Estado del pedido
+            </label>
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              className={`w-full rounded-xl border px-3 py-2 text-xs ${
+                dm
+                  ? 'border-slate-700 bg-slate-900 text-slate-100'
+                  : 'border-gray-200 bg-white text-gray-900'
+              }`}
+            >
+              {ESTADOS_VENTA.map((e) => (
+                <option key={e.value} value={e.value}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

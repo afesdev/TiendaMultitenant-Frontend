@@ -10,8 +10,6 @@ export function useVentas(token: string) {
   const [formOpen, setFormOpen] = useState(false)
   const [detalleOpen, setDetalleOpen] = useState(false)
   const [viendo, setViendo] = useState<VentaResumen | null>(null)
-  const [editModalOpen, setEditModalOpen] = useState(false)
-  const [editando, setEditando] = useState<VentaResumen | null>(null)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -102,10 +100,32 @@ export function useVentas(token: string) {
     setDetalleOpen(true)
   }, [])
 
-  const abrirEditar = useCallback((v: VentaResumen) => {
-    setEditando(v)
-    setEditModalOpen(true)
-  }, [])
+  const actualizarEstado = useCallback(
+    async (venta: VentaResumen, nuevoEstado: string) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/ventas/${encodeURIComponent(venta.Id)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            estado: nuevoEstado,
+            descuentoTotal: venta.DescuentoTotal ?? 0,
+          }),
+        })
+        const body = (await response.json().catch(() => null)) as { message?: string } | null
+        if (!response.ok) {
+          throw new Error(body?.message ?? 'Error al actualizar estado')
+        }
+        await cargar()
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Error al actualizar estado'
+        void Swal.fire('Error', msg, 'error')
+      }
+    },
+    [token, cargar],
+  )
 
   return {
     ventas,
@@ -114,17 +134,13 @@ export function useVentas(token: string) {
     cargar,
     crear,
     eliminar,
+    actualizarEstado,
     formOpen,
     setFormOpen,
     detalleOpen,
     setDetalleOpen,
     viendo,
     setViendo,
-    editModalOpen,
-    setEditModalOpen,
-    editando,
-    setEditando,
     abrirVer,
-    abrirEditar,
   }
 }

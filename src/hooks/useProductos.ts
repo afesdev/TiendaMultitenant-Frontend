@@ -8,6 +8,7 @@ import type {
   ProductoImagenForm,
   ProductoVariante,
   ProductoVarianteForm,
+  NuevaPromocionPayload,
 } from '../types'
 
 type ProductosHookOptions = {
@@ -21,6 +22,8 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
   const [productos, setProductos] = useState<Producto[]>([])
   const [loading, setLoading] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
+  const [detalleOpen, setDetalleOpen] = useState(false)
+  const [viendo, setViendo] = useState<Producto | null>(null)
   const [editando, setEditando] = useState<Producto | null>(null)
   const [nombre, setNombre] = useState('')
   const [codigoInterno, setCodigoInterno] = useState('')
@@ -40,6 +43,26 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importText, setImportText] = useState('')
   const [importFile, setImportFile] = useState<File | null>(null)
+
+  // Datos para crear una promoción en línea junto con el producto
+  const [promoInlineActiva, setPromoInlineActiva] = useState(false)
+  const [promoNombre, setPromoNombre] = useState('')
+  const [promoDescripcion, setPromoDescripcion] = useState('')
+  const [promoTipoDescuento, setPromoTipoDescuento] = useState<'PORCENTAJE' | 'FIJO'>('PORCENTAJE')
+  const [promoValorDescuento, setPromoValorDescuento] = useState(0)
+  const [promoMinCantidad, setPromoMinCantidad] = useState<number | null>(null)
+  const [promoMinTotal, setPromoMinTotal] = useState<number | null>(null)
+  const [promoAplicaSobre, setPromoAplicaSobre] = useState<string | null>('DETAL')
+  const [promoFechaInicio, setPromoFechaInicio] = useState(() => {
+    const d = new Date()
+    return d.toISOString().slice(0, 10)
+  })
+  const [promoFechaFin, setPromoFechaFin] = useState(() => {
+    const d = new Date()
+    d.setDate(d.getDate() + 30)
+    return d.toISOString().slice(0, 10)
+  })
+  const [promoActiva, setPromoActiva] = useState(true)
 
   const slugForSku = useCallback((name: string) => {
     return name
@@ -81,6 +104,11 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
   const handleCodigoInternoChange = useCallback((value: string) => {
     hasUserEditedSkuRef.current = true
     setCodigoInterno(value)
+  }, [])
+
+  const abrirVer = useCallback((prod: Producto) => {
+    setViendo(prod)
+    setDetalleOpen(true)
   }, [])
 
   const abrirNuevo = useCallback(() => {
@@ -356,12 +384,63 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
           }
         }
 
+        // Si se ha configurado una promoción en línea y los datos son válidos, crearla ahora
+        if (promoInlineActiva && promoValorDescuento > 0) {
+          const payloadPromo: NuevaPromocionPayload = {
+            nombre: promoNombre.trim() || `Promo ${savedProduct.Nombre}`.slice(0, 200),
+            descripcion: promoDescripcion.trim() || undefined,
+            tipoDescuento: promoTipoDescuento,
+            valorDescuento: promoValorDescuento,
+            tipoAplicacion: 'PRODUCTO',
+            minCantidad: promoMinCantidad ?? null,
+            minTotal: promoMinTotal ?? null,
+            aplicaSobre: promoAplicaSobre || null,
+            fechaInicio: promoFechaInicio,
+            fechaFin: promoFechaFin,
+            activo: promoActiva,
+            productos: [
+              {
+                productoId: productId,
+                varianteId: null,
+              },
+            ],
+          }
+
+          try {
+            const resPromo = await fetch(`${API_BASE_URL}/promociones`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(payloadPromo),
+            })
+            const bodyPromo = (await resPromo.json().catch(() => null)) as
+              | { message?: string }
+              | null
+            if (!resPromo.ok) {
+              const msg = bodyPromo?.message ?? 'Error al crear la promoción'
+              throw new Error(msg)
+            }
+          } catch (err) {
+            // No revertimos el producto; solo informamos que la promo falló
+            void Swal.fire(
+              'Producto guardado con advertencia',
+              err instanceof Error
+                ? `El producto se guardó, pero la promoción no pudo crearse: ${err.message}`
+                : 'El producto se guardó, pero la promoción no pudo crearse.',
+              'warning',
+            )
+          }
+        }
+
         await cargar()
         await onVariantesReload?.()
         setFormOpen(false)
         setImagenes([])
         setVariantes([])
         setRemovedVarianteIds([])
+        // No reiniciamos todos los campos de promo para permitir reutilizarlos en siguientes productos
         void Swal.fire(
           'Guardado',
           isEdit ? 'Producto actualizado correctamente' : 'Producto creado correctamente',
@@ -635,6 +714,10 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
     eliminar,
     abrirNuevo,
     abrirEditar,
+    abrirVer,
+    detalleOpen,
+    setDetalleOpen,
+    viendo,
     importModalOpen,
     setImportModalOpen,
     importText,
@@ -643,5 +726,28 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
     setImportFile,
     abrirImportModal,
     importarDesdeExcel,
+    // Promoción en línea ligada al producto
+    promoInlineActiva,
+    setPromoInlineActiva,
+    promoNombre,
+    setPromoNombre,
+    promoDescripcion,
+    setPromoDescripcion,
+    promoTipoDescuento,
+    setPromoTipoDescuento,
+    promoValorDescuento,
+    setPromoValorDescuento,
+    promoMinCantidad,
+    setPromoMinCantidad,
+    promoMinTotal,
+    setPromoMinTotal,
+    promoAplicaSobre,
+    setPromoAplicaSobre,
+    promoFechaInicio,
+    setPromoFechaInicio,
+    promoFechaFin,
+    setPromoFechaFin,
+    promoActiva,
+    setPromoActiva,
   }
 }

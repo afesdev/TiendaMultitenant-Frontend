@@ -42,6 +42,10 @@ export interface Producto {
   ImagenUrl?: string | null
   FechaCreacion?: string | null
   FechaModificacion?: string | null
+  /** Precio con oferta aplicada (si hay promoción activa) */
+  PrecioOferta?: number
+  /** Indica si el producto tiene una oferta activa */
+  TieneOferta?: boolean
 }
 
 export interface ProductoImagen {
@@ -49,6 +53,65 @@ export interface ProductoImagen {
   Url: string
   EsPrincipal: boolean
   Orden: number
+}
+
+export interface ProductoDetalleVariante {
+  Id: number
+  Atributo: string
+  Valor: string
+  PrecioAdicional: number
+  StockActual: number
+  CodigoSKU: string | null
+}
+
+export interface ProductoDetalleMovimiento {
+  Id: number
+  Fecha: string
+  TipoMovimiento: string
+  Cantidad: number
+  Motivo: string | null
+  VarianteAtributo: string | null
+  VarianteValor: string | null
+}
+
+export interface ProductoDetallePromocion {
+  Id: number
+  Nombre: string
+  TipoDescuento: string
+  ValorDescuento: number
+  FechaInicio: string
+  FechaFin: string
+  Activo: boolean
+}
+
+export interface ProductoDetalleUltimaVenta {
+  VentaId: number
+  Fecha: string
+  Total: number
+  ClienteNombre: string
+  Cantidad: number
+  PrecioUnitario: number
+  Importe: number
+}
+
+export interface ProductoConDetalle {
+  producto: Producto & {
+    ProveedorContacto?: string | null
+    ProveedorTelefono?: string | null
+    ProveedorEmail?: string | null
+  }
+  imagenes: ProductoImagen[]
+  variantes: ProductoDetalleVariante[]
+  estadisticas: {
+    totalVendido: number
+    ingresosVentas: number
+    countVentas: number
+    totalApartado: number
+    countApartados: number
+  }
+  movimientosRecientes: ProductoDetalleMovimiento[]
+  promociones: ProductoDetallePromocion[]
+  ultimasVentas: ProductoDetalleUltimaVenta[]
 }
 
 /** Imagen en el formulario: id+url si ya está en BD; file+url si es nueva (preview). */
@@ -123,6 +186,7 @@ export interface VentaResumen {
   DescuentoTotal: number
   Total: number
   Observacion: string | null
+  Estado: string | null
   ClienteId: number
   ClienteNombre: string
   RepartidorId: number | null
@@ -140,6 +204,7 @@ export interface VentaDetalleLinea {
   VarianteAtributo: string | null
   VarianteValor: string | null
   VarianteCodigoSKU: string | null
+   VariantePrecioAdicional: number | null
   Cantidad: number
   PrecioUnitario: number
   Importe: number
@@ -196,6 +261,80 @@ export interface VentaConDetalle {
   detalle: VentaDetalleLinea[]
 }
 
+export interface ApartadoResumen {
+  Id: number
+  FechaCreacion: string
+  FechaVencimiento: string
+  Total: number
+  Abonado: number
+  Saldo: number
+  Estado: string
+  ClienteId: number
+  ClienteNombre: string
+  ClienteCedula: string
+  ClienteCelular: string | null
+}
+
+export interface ApartadoCabecera extends ApartadoResumen {
+  ClienteEmail: string | null
+  ClienteDireccion: string | null
+  ClienteCiudad: string | null
+}
+
+export interface ApartadoDetalleLinea {
+  Id: number
+  Apartado_Id: number
+  Producto_Id: number
+  ProductoNombre: string
+  CodigoInterno: string
+  CodigoBarras: string | null
+  ImagenUrl: string | null
+  Variante_Id: number | null
+  VarianteAtributo: string | null
+  VarianteValor: string | null
+  VarianteCodigoSKU: string | null
+  Cantidad: number
+  PrecioVenta: number
+  Importe: number
+}
+
+export interface ApartadoPago {
+  Id: number
+  Apartado_Id: number
+  FechaPago: string
+  Monto: number
+  MetodoPago: string
+  Referencia: string | null
+  Notas: string | null
+}
+
+export interface ApartadoConDetalle {
+  cabecera: ApartadoCabecera
+  detalle: ApartadoDetalleLinea[]
+  pagos: ApartadoPago[]
+}
+
+export interface NuevoApartadoItem {
+  productoId: number
+  cantidad: number
+  precioVenta: number
+  varianteId?: number | null
+}
+
+export interface NuevoApartadoPagoPayload {
+  monto: number
+  metodoPago: string
+  referencia?: string
+  notas?: string
+}
+
+export interface NuevoApartadoPayload {
+  clienteId: number
+  fechaVencimiento: string
+  items: NuevoApartadoItem[]
+  pagoInicial?: NuevoApartadoPagoPayload | null
+}
+
 export interface NuevaVentaItem {
   productoId: number
   cantidad: number
@@ -212,6 +351,58 @@ export interface NuevaVentaPayload {
   observacion?: string
    descuentoTotal?: number
   items: NuevaVentaItem[]
+}
+
+
+export interface PromocionResumen {
+  Id: number
+  Nombre: string
+  Descripcion: string | null
+  TipoDescuento: 'PORCENTAJE' | 'FIJO'
+  ValorDescuento: number
+  TipoAplicacion: string
+  MinCantidad: number | null
+  MinTotal: number | null
+  AplicaSobre: string | null
+  FechaInicio: string
+  FechaFin: string
+  Activo: boolean
+}
+
+export interface PromocionProductoItem {
+  Id: number
+  Producto_Id: number
+  ProductoNombre: string
+  CodigoInterno: string
+  Variante_Id: number | null
+  VarianteAtributo: string | null
+  VarianteValor: string | null
+  VarianteCodigoSKU: string | null
+}
+
+export interface PromocionConDetalle {
+  cabecera: PromocionResumen
+  productos: PromocionProductoItem[]
+}
+
+export interface NuevaPromocionProducto {
+  productoId: number
+  varianteId?: number | null
+}
+
+export interface NuevaPromocionPayload {
+  nombre: string
+  descripcion?: string
+  tipoDescuento: 'PORCENTAJE' | 'FIJO'
+  valorDescuento: number
+  tipoAplicacion?: string
+  minCantidad?: number | null
+  minTotal?: number | null
+  aplicaSobre?: string | null
+  fechaInicio: string
+  fechaFin: string
+  activo: boolean
+  productos: NuevaPromocionProducto[]
 }
 
 
