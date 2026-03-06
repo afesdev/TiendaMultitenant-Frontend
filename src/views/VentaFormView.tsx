@@ -14,6 +14,7 @@ interface VentaLineaUI {
   etiqueta: string
   cantidad: number
   precioUnitario: number
+  varianteId?: number | null
   atributoVariante?: string
   valorVariante?: string
   codigoSKUVariante?: string | null
@@ -72,6 +73,7 @@ export function VentaFormView({
   const [observacion, setObservacion] = useState('')
 
   const [lineas, setLineas] = useState<VentaLineaUI[]>([])
+  const [productoPickerOpen, setProductoPickerOpen] = useState(false)
 
   const clientesFiltrados = useMemo(() => {
     const q = clienteSearch.toLowerCase().trim()
@@ -133,10 +135,49 @@ export function VentaFormView({
   })()
   const total = subtotal - descuentoAplicado
 
+  const cardBg = dm ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'
+  const productoSeleccionado = productoIdSeleccionado
+    ? productos.find((p) => p.Id === productoIdSeleccionado)
+    : null
+
+  const stockDisponibleActual = useMemo(() => {
+    if (!productoSeleccionado) return null
+
+    const variantesProducto = variantes.filter((v) => v.Producto_Id === productoSeleccionado.Id)
+    const varianteSeleccionada = variantesProducto.find((v) => v.Id === varianteIdSeleccionada)
+
+    let stockBase: number | null = null
+    if (varianteSeleccionada && typeof varianteSeleccionada.StockActual === 'number') {
+      stockBase = varianteSeleccionada.StockActual
+    } else if (typeof productoSeleccionado.StockActual === 'number') {
+      stockBase = productoSeleccionado.StockActual
+    }
+
+    const yaAgregado = lineas
+      .filter((l) => {
+        if (l.productoId !== productoSeleccionado.Id) return false
+        if (varianteSeleccionada) {
+          return l.varianteId === varianteSeleccionada.Id
+        }
+        return !l.varianteId
+      })
+      .reduce((acc, l) => acc + l.cantidad, 0)
+
+    if (stockBase == null) return null
+    // Si el stock configurado es 0 y aún no se ha agregado nada,
+    // no aplicamos restricción (modo “sin stock configurado”).
+    if (stockBase <= 0 && yaAgregado === 0) return null
+
+    return Math.max(0, stockBase - yaAgregado)
+  }, [productoSeleccionado, variantes, varianteIdSeleccionada, lineas])
+
   const handleAgregarLinea = () => {
     if (!productoIdSeleccionado || cantidad <= 0 || precioUnitario < 0) return
     const producto = productos.find((p) => p.Id === productoIdSeleccionado)
     if (!producto) return
+
+    if (stockDisponibleActual !== null && stockDisponibleActual <= 0) return
+    if (stockDisponibleActual !== null && cantidad > stockDisponibleActual) return
 
     const varianteSeleccionada = variantesDelProducto.find(
       (v) => v.Id === varianteIdSeleccionada,
@@ -154,6 +195,7 @@ export function VentaFormView({
         etiqueta: `${etiquetaBase}${etiquetaVariante}`,
         cantidad,
         precioUnitario,
+        varianteId: varianteSeleccionada?.Id ?? null,
         atributoVariante: varianteSeleccionada?.Atributo,
         valorVariante: varianteSeleccionada?.Valor,
         codigoSKUVariante: varianteSeleccionada?.CodigoSKU ?? null,
@@ -191,16 +233,12 @@ export function VentaFormView({
         productoId: l.productoId,
         cantidad: l.cantidad,
         precioUnitario: l.precioUnitario,
+        varianteId: l.varianteId ?? null,
       })),
     }
 
     await onSubmit(payload)
   }
-
-  const cardBg = dm ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'
-  const productoSeleccionado = productoIdSeleccionado
-    ? productos.find((p) => p.Id === productoIdSeleccionado)
-    : null
 
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-4">
@@ -393,58 +431,17 @@ export function VentaFormView({
               Productos y variantes
             </label>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="md:col-span-2">
+              <div className="md:col-span-2 space-y-2">
                 <div
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 ${
                     dm
                       ? 'border-slate-700 bg-slate-900/60'
                       : 'border-gray-200 bg-gray-50'
                   }`}
                 >
-                  <Package size={16} className="text-emerald-500" />
-                  <input
-                    type="text"
-                    placeholder="Buscar producto por nombre, código o barras..."
-                    value={productoSearch}
-                    onChange={(e) => setProductoSearch(e.target.value)}
-                    className={`flex-1 bg-transparent border-none text-xs focus:outline-none ${
-                      dm
-                        ? 'text-slate-100 placeholder-slate-500'
-                        : 'text-gray-900 placeholder-gray-400'
-                    }`}
-                  />
-                </div>
-                <select
-                  value={productoIdSeleccionado ?? ''}
-                  onChange={(e) =>
-                    setProductoIdSeleccionado(
-                      e.target.value ? Number(e.target.value) : null,
-                    )
-                  }
-                  className={`mt-2 w-full rounded-xl border px-3 py-2 text-xs ${
-                    dm
-                      ? 'border-slate-700 bg-slate-900 text-slate-100'
-                      : 'border-gray-200 bg-white text-gray-900'
-                  }`}
-                >
-                  <option value="">Selecciona un producto</option>
-                  {productosFiltrados.map((p) => (
-                    <option key={p.Id} value={p.Id}>
-                      {p.Nombre} – {p.CodigoInterno}
-                    </option>
-                  ))}
-                </select>
-
-                {productoSeleccionado && (
-                  <div
-                    className={`mt-3 flex items-center gap-3 rounded-xl border px-3 py-2 text-xs ${
-                      dm
-                        ? 'border-slate-700 bg-slate-900/60'
-                        : 'border-gray-200 bg-gray-50'
-                    }`}
-                  >
-                    <div className="h-12 w-12 rounded-xl overflow-hidden border border-slate-700/40 flex items-center justify-center bg-slate-900/20">
-                      {productoSeleccionado.ImagenUrl ? (
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="h-10 w-10 rounded-lg overflow-hidden border border-slate-700/40 flex items-center justify-center bg-slate-900/20">
+                      {productoSeleccionado?.ImagenUrl ? (
                         <img
                           src={productoSeleccionado.ImagenUrl}
                           alt={productoSeleccionado.Nombre}
@@ -454,26 +451,60 @@ export function VentaFormView({
                         <Package size={18} className="text-slate-400" />
                       )}
                     </div>
-                    <div className="flex flex-col">
-                      <span className={`text-xs font-semibold ${textPrimary}`}>
-                        {productoSeleccionado.Nombre}
+                    <div className="flex flex-col min-w-0">
+                      <span
+                        className={`text-xs font-semibold ${textPrimary} truncate max-w-[150px] sm:max-w-[220px]`}
+                      >
+                        {productoSeleccionado?.Nombre ?? 'Sin producto seleccionado'}
                       </span>
-                      <span className={`text-[11px] font-mono ${textMuted}`}>
-                        {productoSeleccionado.CodigoInterno}
-                      </span>
-                      <span className={`text-[11px] mt-1 ${textSecondary}`}>
-                        Precio {tipoVenta === 'MAYORISTA' ? 'mayorista' : 'detal'}:{' '}
+                      {productoSeleccionado && (
+                        <span className={`text-[11px] font-mono ${textMuted} truncate`}>
+                          {productoSeleccionado.CodigoInterno}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProductoSearch('')
+                      setProductoPickerOpen(true)
+                    }}
+                    className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[11px] font-semibold hover:bg-emerald-600 transition-colors"
+                  >
+                    {productoSeleccionado ? 'Cambiar' : 'Buscar'}
+                  </button>
+                </div>
+
+                {productoSeleccionado && (
+                  <div
+                    className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-[11px] ${
+                      dm
+                        ? 'border-slate-700 bg-slate-900/60'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className={textSecondary}>
+                        Precio detal:{' '}
                         <span className="font-semibold">
-                          {(
-                            (tipoVenta === 'MAYORISTA' &&
-                              (productoSeleccionado.PrecioMayor ??
-                                productoSeleccionado.PrecioDetal)) ||
-                            productoSeleccionado.PrecioDetal
-                          ).toLocaleString('es-CO', {
+                          {productoSeleccionado.PrecioDetal.toLocaleString('es-CO', {
                             style: 'currency',
                             currency: 'COP',
                             maximumFractionDigits: 0,
                           })}
+                        </span>
+                      </span>
+                      <span className={textSecondary}>
+                        Precio mayor:{' '}
+                        <span className="font-semibold">
+                          {productoSeleccionado.PrecioMayor != null
+                            ? productoSeleccionado.PrecioMayor.toLocaleString('es-CO', {
+                                style: 'currency',
+                                currency: 'COP',
+                                maximumFractionDigits: 0,
+                              })
+                            : '—'}
                         </span>
                       </span>
                     </div>
@@ -520,14 +551,29 @@ export function VentaFormView({
                   <input
                     type="number"
                     min={1}
+                    max={stockDisponibleActual ?? undefined}
                     value={cantidad}
-                    onChange={(e) => setCantidad(Number(e.target.value) || 0)}
+                    onChange={(e) => {
+                      let value = Number(e.target.value) || 0
+                      if (stockDisponibleActual !== null && value > stockDisponibleActual) {
+                        value = stockDisponibleActual
+                      }
+                      setCantidad(value)
+                    }}
                     className={`w-full rounded-xl border px-3 py-2 text-xs ${
                       dm
                         ? 'border-slate-700 bg-slate-900 text-slate-100'
                         : 'border-gray-200 bg-white text-gray-900'
                     }`}
                   />
+                  {stockDisponibleActual !== null && (
+                    <p className={`mt-1 text-[11px] ${textMuted}`}>
+                      Stock disponible para esta selección:{' '}
+                      <span className="font-semibold">
+                        {stockDisponibleActual}
+                      </span>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className={`block text-xs font-semibold mb-1 ${textPrimary}`}>
@@ -748,6 +794,128 @@ export function VentaFormView({
           </div>
         </form>
       </div>
+
+      {productoPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-3 sm:px-6">
+          <div
+            className={`w-full max-w-3xl rounded-2xl border shadow-2xl ${cardBg} max-h-[80vh] flex flex-col`}
+          >
+            <div className="flex items-center justify-between px-5 py-3 sm:px-6 sm:py-4 border-b border-slate-800/40">
+              <div>
+                <h3 className={`text-sm sm:text-base font-semibold ${textPrimary}`}>
+                  Seleccionar producto
+                </h3>
+                <p className={`text-[11px] mt-0.5 ${textSecondary}`}>
+                  Busca y elige el producto que deseas agregar a la venta.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProductoPickerOpen(false)}
+                className={`rounded-xl px-2.5 py-1 text-xs font-semibold ${btnSecondary}`}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="px-5 py-3 sm:px-6 space-y-3 flex-1 overflow-y-auto">
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  dm
+                    ? 'border-slate-700 bg-slate-900/60'
+                    : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <Package size={16} className="text-emerald-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar producto por nombre, código o barras..."
+                  value={productoSearch}
+                  onChange={(e) => setProductoSearch(e.target.value)}
+                  className={`flex-1 bg-transparent border-none text-xs focus:outline-none ${
+                    dm
+                      ? 'text-slate-100 placeholder-slate-500'
+                      : 'text-gray-900 placeholder-gray-400'
+                  }`}
+                />
+              </div>
+
+              <div className="space-y-2">
+                {productosFiltrados.map((p) => {
+                  const isSelected = productoIdSeleccionado === p.Id
+                  return (
+                    <button
+                      key={p.Id}
+                      type="button"
+                      onClick={() => {
+                        setProductoIdSeleccionado(p.Id)
+                        setVarianteIdSeleccionada(null)
+                        setProductoPickerOpen(false)
+                      }}
+                      className={`w-full flex items-center gap-3 rounded-xl border px-3 py-2 text-[11px] text-left transition-colors ${
+                        dm
+                          ? isSelected
+                            ? 'border-emerald-500 bg-emerald-500/10'
+                            : 'border-slate-700 bg-slate-900/40 hover:bg-slate-900/70'
+                          : isSelected
+                            ? 'border-emerald-500 bg-emerald-50'
+                            : 'border-gray-200 bg-white hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="h-12 w-12 rounded-xl overflow-hidden border border-slate-700/40 flex items-center justify-center bg-slate-900/10">
+                        {p.ImagenUrl ? (
+                          <img
+                            src={p.ImagenUrl}
+                            alt={p.Nombre}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Package size={18} className="text-slate-400" />
+                        )}
+                      </div>
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <span className={`text-xs font-semibold ${textPrimary} truncate`}>
+                          {p.Nombre}
+                        </span>
+                        <span className={`text-[11px] font-mono ${textMuted} truncate`}>
+                          {p.CodigoInterno}
+                        </span>
+                        <span className={`text-[11px] mt-0.5 ${textSecondary}`}>
+                          {p.PrecioDetal.toLocaleString('es-CO', {
+                            style: 'currency',
+                            currency: 'COP',
+                            maximumFractionDigits: 0,
+                          })}{' '}
+                          <span className="uppercase text-[10px] opacity-70">detal</span>
+                          {p.PrecioMayor != null && (
+                            <>
+                              {' · '}
+                              {p.PrecioMayor.toLocaleString('es-CO', {
+                                style: 'currency',
+                                currency: 'COP',
+                                maximumFractionDigits: 0,
+                              })}{' '}
+                              <span className="uppercase text-[10px] opacity-70">
+                                mayor
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+
+                {productosFiltrados.length === 0 && (
+                  <p className={`text-[11px] ${textMuted}`}>
+                    No hay productos que coincidan con la búsqueda.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

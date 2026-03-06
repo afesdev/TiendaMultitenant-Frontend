@@ -21,6 +21,7 @@ export interface NavbarProps {
   user: { nombre: string; rolNombre: string }
   tienda: { nombreComercial: string; slug: string }
   onLogout: () => void
+  navbarBgColor?: string
 }
 
 export function Navbar({
@@ -31,6 +32,7 @@ export function Navbar({
   user,
   tienda,
   onLogout,
+  navbarBgColor,
 }: NavbarProps) {
   const avatar = user.nombre.charAt(0).toUpperCase()
   const pageLabel = PAGE_LABELS[activeKey] ?? 'Panel'
@@ -45,6 +47,7 @@ export function Navbar({
           ? 'bg-slate-900/90 backdrop-blur-md border-slate-800/60'
           : 'bg-white border-gray-200',
       ].join(' ')}
+      style={navbarBgColor ? { backgroundColor: navbarBgColor } : undefined}
     >
       {/* ── Mobile sidebar toggle (hidden on desktop) ───────────────── */}
       <button

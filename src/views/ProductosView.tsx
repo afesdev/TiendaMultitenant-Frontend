@@ -229,7 +229,7 @@ export function ProductosView({
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Producto</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Clasificación</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Inventario</th>
-                <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Precio Detal</th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Precios</th>
                 <th className="px-6 py-4 text-center text-xs font-bold uppercase tracking-wider">Visibilidad</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Creado</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Modificado</th>
@@ -305,14 +305,31 @@ export function ProductosView({
                       {prod.StockActual}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-mono font-bold">
-                    <span className={textPrimary}>
-                      {prod.PrecioDetal.toLocaleString('es-CO', {
-                        style: 'currency',
-                        currency: 'COP',
-                        maximumFractionDigits: 0,
-                      })}
-                    </span>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-[11px] font-mono">
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="font-bold">
+                        {prod.PrecioDetal.toLocaleString('es-CO', {
+                          style: 'currency',
+                          currency: 'COP',
+                          maximumFractionDigits: 0,
+                        })}{' '}
+                        <span className="text-[10px] font-semibold uppercase opacity-60">
+                          detal
+                        </span>
+                      </span>
+                      <span className={prod.PrecioMayor ? 'opacity-80' : 'opacity-40 italic'}>
+                        {prod.PrecioMayor != null
+                          ? prod.PrecioMayor.toLocaleString('es-CO', {
+                              style: 'currency',
+                              currency: 'COP',
+                              maximumFractionDigits: 0,
+                            })
+                          : '—'}{' '}
+                        <span className="text-[10px] font-semibold uppercase">
+                          mayor
+                        </span>
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     {prod.Visible ? (
@@ -330,26 +347,46 @@ export function ProductosView({
                     )}
                   </td>
                   <td className={`px-6 py-4 whitespace-nowrap text-xs ${textSecondary}`}>
-                    {prod.FechaCreacion
-                      ? new Date(prod.FechaCreacion).toLocaleDateString('es-CO', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : '—'}
+                    {prod.FechaCreacion ? (
+                      <div className="flex flex-col leading-tight">
+                        <span>
+                          {new Date(prod.FechaCreacion).toLocaleDateString('es-CO', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                          })}
+                        </span>
+                        <span className={`text-[11px] ${textMuted}`}>
+                          {new Date(prod.FechaCreacion).toLocaleTimeString('es-CO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className={`px-6 py-4 whitespace-nowrap text-xs ${textSecondary}`}>
-                    {prod.FechaModificacion
-                      ? new Date(prod.FechaModificacion).toLocaleDateString('es-CO', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : '—'}
+                    {prod.FechaModificacion ? (
+                      <div className="flex flex-col leading-tight">
+                        <span>
+                          {new Date(prod.FechaModificacion).toLocaleDateString('es-CO', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                          })}
+                        </span>
+                        <span className={`text-[11px] ${textMuted}`}>
+                          {new Date(prod.FechaModificacion).toLocaleTimeString('es-CO', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     <div className="flex justify-end gap-2">

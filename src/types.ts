@@ -133,10 +133,63 @@ export interface VentaDetalleLinea {
   Id: number
   Producto_Id: number
   ProductoNombre: string
+  CodigoInterno: string
+  CodigoBarras: string | null
+  ImagenUrl: string | null
+  Variante_Id: number | null
+  VarianteAtributo: string | null
+  VarianteValor: string | null
+  VarianteCodigoSKU: string | null
   Cantidad: number
   PrecioUnitario: number
   Importe: number
 }
+
+export interface MovimientoInventario {
+  Id: number
+  Fecha: string
+  TipoMovimiento: string
+  Cantidad: number
+  Motivo: string | null
+  Producto_Id: number
+  ProductoNombre: string
+  CodigoInterno: string
+  CodigoBarras: string | null
+  ImagenUrl: string | null
+  Variante_Id: number | null
+  VarianteAtributo: string | null
+  VarianteValor: string | null
+  VarianteCodigoSKU: string | null
+}
+
+export interface TiendaConfigTheme {
+  primaryColor: string
+  sidebarBg: string
+  navbarBg: string
+}
+
+export interface TiendaConfigSocial {
+  facebook?: string
+  instagram?: string
+  whatsapp?: string
+  tiktok?: string
+}
+
+export interface TiendaConfig {
+  theme: TiendaConfigTheme
+  social: TiendaConfigSocial
+}
+
+export interface TiendaPanel {
+  id: string
+  nombreComercial: string
+  slug: string
+  emailContacto: string
+  configuracion: TiendaConfig | null
+  activo: boolean
+  fechaCreacion: string
+}
+
 
 export interface VentaConDetalle {
   cabecera: VentaResumen
@@ -147,6 +200,7 @@ export interface NuevaVentaItem {
   productoId: number
   cantidad: number
   precioUnitario: number
+  varianteId?: number | null
 }
 
 export interface NuevaVentaPayload {
