@@ -304,9 +304,9 @@ export function VentaFormView({
     setLineas((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const agregarPorCodigoBarras = async (codigo: string) => {
+  const agregarPorCodigoBarras = async (codigo: string): Promise<boolean> => {
     const codigoTrim = codigo.trim()
-    if (!codigoTrim) return
+    if (!codigoTrim) return false
     const producto = productos.find(
       (p) => p.CodigoBarras && p.CodigoBarras.trim() === codigoTrim,
     )
@@ -316,7 +316,7 @@ export function VentaFormView({
         title: 'No encontrado',
         text: `No hay producto con código de barras "${codigoTrim}"`,
       })
-      return
+      return false
     }
     let precioBase =
       tipoVenta === 'MAYORISTA' && producto.PrecioMayor != null
@@ -365,6 +365,7 @@ export function VentaFormView({
     }
     setScanInput('')
     scanInputRef.current?.focus()
+    return true
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -630,8 +631,9 @@ export function VentaFormView({
                 dm={dm}
                 textPrimary={textPrimary}
                 textMuted={textMuted}
-                onScan={(codigo) => {
-                  void agregarPorCodigoBarras(codigo)
+                onScan={async (codigo) => {
+                  const agregado = await agregarPorCodigoBarras(codigo)
+                  if (agregado) setScanCameraOpen(false)
                 }}
                 onClose={() => setScanCameraOpen(false)}
               />
@@ -811,8 +813,8 @@ export function VentaFormView({
               </div>
             </div>
 
-            <div className="mt-3 rounded-xl border border-slate-700/40 overflow-hidden">
-              <table className="min-w-full text-xs">
+            <div className="mt-3 rounded-xl border border-slate-700/40 overflow-x-auto overscroll-x-contain">
+              <table className="w-full min-w-[420px] text-xs">
                 <thead
                   className={
                     dm ? 'bg-slate-900/80 text-slate-200' : 'bg-gray-50 text-gray-700'
