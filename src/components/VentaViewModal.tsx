@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import {
   User,
   CreditCard,
@@ -11,10 +11,14 @@ import {
   ShoppingBag,
   Receipt,
   MapPin,
+  RotateCcw,
+  Printer,
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { API_BASE_URL } from '../config'
-import type { VentaConDetalle } from '../types'
+import type { VentaConDetalle, MovimientoInventario } from '../types'
+import { DevolucionModal } from './DevolucionModal'
+import { imprimirTicketVenta } from '../utils/imprimirTicket'
 
 interface VentaDetalleViewProps {
   dm: boolean
@@ -25,6 +29,13 @@ interface VentaDetalleViewProps {
   token: string
   ventaId: number
   onVolver: () => void
+  onDevolucionRegistrada?: () => void
+  /** Nombre de la tienda para el ticket */
+  tiendaNombre: string
+  /** Dirección (opcional) para el ticket */
+  tiendaDireccion?: string
+  /** Teléfono (opcional) para el ticket */
+  tiendaTelefono?: string
 }
 
 export function VentaDetalleView({
@@ -32,40 +43,62 @@ export function VentaDetalleView({
   textPrimary,
   textSecondary,
   textMuted,
+  btnSecondary,
   token,
   ventaId,
   onVolver,
+  onDevolucionRegistrada,
+  tiendaNombre,
+  tiendaDireccion,
+  tiendaTelefono,
 }: VentaDetalleViewProps) {
   const [data, setData] = useState<VentaConDetalle | null>(null)
+  const [devoluciones, setDevoluciones] = useState<MovimientoInventario[]>([])
   const [loading, setLoading] = useState(false)
+  const [devolucionOpen, setDevolucionOpen] = useState(false)
+
+  const fetchDetalle = useCallback(async () => {
+    if (!ventaId) return
+    setLoading(true)
+    try {
+      const [detalleRes, devolucionesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/ventas/${encodeURIComponent(ventaId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/ventas/${encodeURIComponent(ventaId)}/devoluciones`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ])
+
+      const body = (await detalleRes.json().catch(() => null)) as VentaConDetalle | {
+        message?: string
+      } | null
+
+      if (!detalleRes.ok) {
+        const msg = (body as { message?: string } | null)?.message ?? 'Error al cargar la venta'
+        throw new Error(msg)
+      }
+      setData(body as VentaConDetalle)
+
+      if (devolucionesRes.ok) {
+        const dev = (await devolucionesRes.json()) as MovimientoInventario[]
+        setDevoluciones(Array.isArray(dev) ? dev : [])
+      } else {
+        setDevoluciones([])
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al cargar la venta'
+      void Swal.fire('Error', msg, 'error')
+      setData(null)
+      setDevoluciones([])
+    } finally {
+      setLoading(false)
+    }
+  }, [ventaId, token])
 
   useEffect(() => {
-    const fetchDetalle = async () => {
-      if (!ventaId) return
-      setLoading(true)
-      try {
-        const response = await fetch(`${API_BASE_URL}/ventas/${encodeURIComponent(ventaId)}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        const body = (await response.json().catch(() => null)) as VentaConDetalle | {
-          message?: string
-        } | null
-
-        if (!response.ok) {
-          const msg = (body as { message?: string } | null)?.message ?? 'Error al cargar la venta'
-          throw new Error(msg)
-        }
-        setData(body as VentaConDetalle)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Error al cargar la venta'
-        void Swal.fire('Error', msg, 'error')
-        setData(null)
-      } finally {
-        setLoading(false)
-      }
-    }
     void fetchDetalle()
-  }, [ventaId, token])
+  }, [fetchDetalle])
 
   if (!ventaId) return null
 
@@ -151,13 +184,21 @@ export function VentaDetalleView({
                     </h2>
                     <span
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                        dm
-                          ? 'bg-emerald-500/10 text-emerald-400'
-                          : 'bg-emerald-50 text-emerald-700'
+                        (cab.Estado ?? '').toUpperCase() === 'CANCELADO'
+                          ? dm
+                            ? 'bg-rose-500/10 text-rose-400'
+                            : 'bg-rose-50 text-rose-700'
+                          : dm
+                            ? 'bg-emerald-500/10 text-emerald-400'
+                            : 'bg-emerald-50 text-emerald-700'
                       }`}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Completada
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          (cab.Estado ?? '').toUpperCase() === 'CANCELADO' ? 'bg-rose-500' : 'bg-emerald-500'
+                        }`}
+                      />
+                      {cab.Estado ?? 'Pendiente'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -176,17 +217,45 @@ export function VentaDetalleView({
                 </div>
               </div>
 
-              {/* Total destacado */}
-              <div className="flex-shrink-0 text-right">
-                <p className={`text-[11px] font-medium ${textMuted} mb-0.5`}>Total de la venta</p>
-                <p className="text-2xl font-bold text-emerald-500 tabular-nums">
-                  {fmt(total)}
-                </p>
-                {descuento > 0 && (
-                  <p className="text-[11px] text-amber-500 font-medium">
-                    Descuento: {fmt(descuento)}
-                  </p>
+              {/* Total destacado + Devolución + Imprimir */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                {(cab.Estado ?? '').toUpperCase() !== 'CANCELADO' && detalle.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setDevolucionOpen(true)}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${
+                      dm
+                        ? 'border-sky-500/50 bg-sky-500/20 text-sky-400 hover:bg-sky-500/30'
+                        : 'border-sky-500 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20'
+                    }`}
+                  >
+                    <RotateCcw size={18} />
+                    Devolución
+                  </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => data && imprimirTicketVenta(data, { nombre: tiendaNombre, direccion: tiendaDireccion, telefono: tiendaTelefono })}
+                  className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all ${
+                    dm
+                      ? 'border-slate-500 bg-slate-500/20 text-slate-300 hover:bg-slate-500/30'
+                      : 'border-gray-300 bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Printer size={18} />
+                  Imprimir ticket
+                </button>
+                <div className="flex-shrink-0 text-right">
+                  <p className={`text-[11px] font-medium ${textMuted} mb-0.5`}>Total de la venta</p>
+                  <p className="text-2xl font-bold text-emerald-500 tabular-nums">
+                    {fmt(total)}
+                  </p>
+                  {descuento > 0 && (
+                    <p className="text-[11px] text-amber-500 font-medium">
+                      Descuento: {fmt(descuento)}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -434,6 +503,125 @@ export function VentaDetalleView({
             )}
           </div>
 
+          {/* ── Devoluciones de esta venta ── */}
+          {devoluciones.length > 0 && (
+            <div className={`rounded-2xl border overflow-hidden ${surface}`}>
+              <div
+                className={`px-4 py-3 border-b flex items-center gap-2 ${borderToken} ${surfaceAlt}`}
+              >
+                <RotateCcw size={16} className="text-sky-500" />
+                <p className={`text-sm font-bold ${textPrimary}`}>Devoluciones de esta venta</p>
+                <span
+                  className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                    dm ? 'bg-sky-500/20 text-sky-400' : 'bg-sky-500/15 text-sky-600'
+                  }`}
+                >
+                  {devoluciones.length} registro{devoluciones.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className={surfaceAlt}>
+                      <th className={`px-4 py-2.5 text-left font-semibold ${textMuted}`}>
+                        Producto
+                      </th>
+                      <th className={`px-4 py-2.5 text-left font-semibold ${textMuted}`}>
+                        Variante
+                      </th>
+                      <th className={`px-4 py-2.5 text-center font-semibold ${textMuted}`}>
+                        Cantidad
+                      </th>
+                      <th className={`px-4 py-2.5 text-left font-semibold ${textMuted}`}>
+                        Fecha
+                      </th>
+                      <th className={`px-4 py-2.5 text-left font-semibold ${textMuted}`}>
+                        Motivo
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${divider}`}>
+                    {devoluciones.map((d) => (
+                      <tr
+                        key={d.Id}
+                        className={dm ? 'hover:bg-slate-800/50' : 'hover:bg-gray-50'}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex-shrink-0 h-10 w-10 rounded-lg border overflow-hidden flex items-center justify-center ${
+                                dm ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gray-100'
+                              }`}
+                            >
+                              {d.ImagenUrl ? (
+                                <img
+                                  src={d.ImagenUrl}
+                                  alt={d.ProductoNombre}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <Package size={14} className={textMuted} />
+                              )}
+                            </div>
+                            <div>
+                              <span className={`text-sm font-semibold ${textPrimary}`}>
+                                {d.ProductoNombre}
+                              </span>
+                              <span className={`block text-xs font-mono ${textMuted}`}>
+                                {d.CodigoInterno}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          {d.VarianteAtributo && d.VarianteValor ? (
+                            <span
+                              className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                                dm ? 'bg-sky-500/20 text-sky-400' : 'bg-sky-500/15 text-sky-600'
+                              }`}
+                            >
+                              {d.VarianteAtributo}: {d.VarianteValor}
+                              {d.VarianteCodigoSKU && ` · ${d.VarianteCodigoSKU}`}
+                            </span>
+                          ) : (
+                            <span className={textMuted}>—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-flex items-center justify-center min-w-[28px] h-7 rounded-full text-xs font-bold ${
+                              dm ? 'bg-sky-500/20 text-sky-400' : 'bg-sky-500/15 text-sky-600'
+                            }`}
+                          >
+                            {d.Cantidad}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={textSecondary}>
+                            {d.Fecha
+                              ? new Date(d.Fecha).toLocaleString('es-CO', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-sm ${textSecondary}`}>
+                            {d.Motivo || '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* ── Resumen financiero ── */}
           <div className="flex justify-end">
             <div className={`rounded-2xl border w-full sm:w-80 overflow-hidden ${surface}`}>
@@ -471,6 +659,25 @@ export function VentaDetalleView({
               </div>
             </div>
           </div>
+
+          <DevolucionModal
+            open={devolucionOpen}
+            dm={dm}
+            textPrimary={textPrimary}
+            textSecondary={textSecondary}
+            textMuted={textMuted}
+            btnSecondary={btnSecondary}
+            ventaId={ventaId}
+            detalle={detalle}
+            token={token}
+            loading={loading}
+            onClose={() => setDevolucionOpen(false)}
+            onSuccess={() => {
+              void fetchDetalle()
+              onDevolucionRegistrada?.()
+              void Swal.fire('Devolución registrada', 'Se actualizó el stock correctamente.', 'success')
+            }}
+          />
         </>
       )}
     </div>

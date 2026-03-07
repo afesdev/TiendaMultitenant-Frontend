@@ -1,7 +1,9 @@
 import type { FormEvent } from 'react'
-import { useEffect, useMemo, useState } from 'react'
-import { User, Package, Layers, CreditCard } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { User, Package, Layers, CreditCard, ScanBarcode, Camera } from 'lucide-react'
+import Swal from 'sweetalert2'
 import { API_BASE_URL } from '../config'
+import { ScanCameraModal } from '../components/ScanCameraModal'
 import type {
   Cliente,
   NuevaVentaPayload,
@@ -77,6 +79,9 @@ export function VentaFormView({
 
   const [lineas, setLineas] = useState<VentaLineaUI[]>([])
   const [productoPickerOpen, setProductoPickerOpen] = useState(false)
+  const [scanInput, setScanInput] = useState('')
+  const [scanCameraOpen, setScanCameraOpen] = useState(false)
+  const scanInputRef = useRef<HTMLInputElement>(null)
 
   const clientesFiltrados = useMemo(() => {
     const q = clienteSearch.toLowerCase().trim()
@@ -299,6 +304,69 @@ export function VentaFormView({
     setLineas((prev) => prev.filter((_, i) => i !== index))
   }
 
+  const agregarPorCodigoBarras = async (codigo: string) => {
+    const codigoTrim = codigo.trim()
+    if (!codigoTrim) return
+    const producto = productos.find(
+      (p) => p.CodigoBarras && p.CodigoBarras.trim() === codigoTrim,
+    )
+    if (!producto) {
+      void Swal.fire({
+        icon: 'warning',
+        title: 'No encontrado',
+        text: `No hay producto con código de barras "${codigoTrim}"`,
+      })
+      return
+    }
+    let precioBase =
+      tipoVenta === 'MAYORISTA' && producto.PrecioMayor != null
+        ? producto.PrecioMayor
+        : producto.PrecioDetal
+    try {
+      const res = await fetch(`${API_BASE_URL}/public/promociones/calcular`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tiendaSlug,
+          items: [
+            { productoId: producto.Id, varianteId: null, cantidad: 1, precioBase },
+          ],
+        }),
+      })
+      if (res.ok) {
+        const data = (await res.json()) as Array<{ precioFinal: number }>
+        const final = data[0]?.precioFinal
+        if (typeof final === 'number') precioBase = final
+      }
+    } catch {
+      // mantener precioBase
+    }
+    const yaEnLinea = lineas.find(
+      (l) => l.productoId === producto.Id && !l.varianteId,
+    )
+    if (yaEnLinea) {
+      const idx = lineas.indexOf(yaEnLinea)
+      setLineas((prev) =>
+        prev.map((l, i) =>
+          i === idx ? { ...l, cantidad: l.cantidad + 1 } : l,
+        ),
+      )
+    } else {
+      setLineas((prev) => [
+        ...prev,
+        {
+          productoId: producto.Id,
+          etiqueta: producto.Nombre,
+          cantidad: 1,
+          precioUnitario: precioBase,
+          varianteId: null,
+        },
+      ])
+    }
+    setScanInput('')
+    scanInputRef.current?.focus()
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!clienteId || lineas.length === 0) return
@@ -512,6 +580,63 @@ export function VentaFormView({
             <label className={`block text-xs font-semibold ${textPrimary}`}>
               Productos y variantes
             </label>
+
+            {/* Campo de escaneo (USB o cámara) */}
+            <div
+              className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                dm
+                  ? 'border-slate-700 bg-slate-900/60'
+                  : 'border-gray-200 bg-gray-50'
+              }`}
+            >
+              <ScanBarcode size={18} className="text-emerald-500 flex-shrink-0" />
+              <input
+                ref={scanInputRef}
+                type="text"
+                placeholder="Escanear código de barras (USB o pegar)..."
+                value={scanInput}
+                onChange={(e) => setScanInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    void agregarPorCodigoBarras(scanInput)
+                  }
+                }}
+                autoComplete="off"
+                className={`flex-1 bg-transparent border-none text-sm focus:outline-none ${
+                  dm
+                    ? 'text-slate-100 placeholder-slate-500'
+                    : 'text-gray-900 placeholder-gray-400'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setScanCameraOpen((o) => !o)}
+                className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
+                  scanCameraOpen
+                    ? 'bg-emerald-500 text-white'
+                    : dm
+                      ? 'hover:bg-slate-700 text-slate-400'
+                      : 'hover:bg-gray-200 text-gray-500'
+                }`}
+                title={scanCameraOpen ? 'Cerrar cámara' : 'Escanear con cámara'}
+              >
+                <Camera size={18} />
+              </button>
+            </div>
+
+            {scanCameraOpen && (
+              <ScanCameraModal
+                dm={dm}
+                textPrimary={textPrimary}
+                textMuted={textMuted}
+                onScan={(codigo) => {
+                  void agregarPorCodigoBarras(codigo)
+                }}
+                onClose={() => setScanCameraOpen(false)}
+              />
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div className="md:col-span-2 space-y-2">
                 <div

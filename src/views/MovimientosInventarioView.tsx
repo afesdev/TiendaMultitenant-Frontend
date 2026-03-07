@@ -7,8 +7,11 @@ import {
   ChevronRight,
   Package,
   Activity,
+  Plus,
 } from 'lucide-react'
-import type { MovimientoInventario } from '../types'
+import type { MovimientoInventario, Producto, ProductoVariante } from '../types'
+import { MovimientoModal } from '../components/MovimientoModal'
+import type { CrearMovimientoPayload } from '../hooks/useMovimientos'
 
 interface MovimientosInventarioViewProps {
   movimientos: MovimientoInventario[]
@@ -21,7 +24,11 @@ interface MovimientosInventarioViewProps {
   tableHead: string
   tableRow: string
   btnSecondary: string
+  productos: Producto[]
+  variantes: ProductoVariante[]
+  creando: boolean
   onRecargar: () => void
+  onCrear: (payload: CrearMovimientoPayload) => Promise<boolean>
 }
 
 type RangoFecha = 'hoy' | '7dias' | 'mes' | 'todo'
@@ -39,9 +46,14 @@ export function MovimientosInventarioView({
   tableBorder,
   tableHead,
   tableRow,
-  btnSecondary: _btnSecondary,
+  btnSecondary,
+  productos,
+  variantes,
+  creando,
   onRecargar,
+  onCrear,
 }: MovimientosInventarioViewProps) {
+  const [modalOpen, setModalOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRango, setFilterRango] = useState<RangoFecha>('7dias')
   const [filterTipo, setFilterTipo] = useState<TipoMovimientoFiltro>('TODOS')
@@ -136,21 +148,50 @@ export function MovimientosInventarioView({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onRecargar()}
-          disabled={loading}
-          className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-            dm
-              ? 'border-slate-600 bg-slate-800/50 text-slate-200 hover:bg-slate-700/80'
-              : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          title="Recargar listado"
-        >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-          Recargar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            disabled={loading}
+            className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all active:scale-95 disabled:opacity-50 ${
+              dm
+                ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                : 'border-emerald-500 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+            }`}
+          >
+            <Plus size={18} />
+            Nuevo movimiento
+          </button>
+          <button
+            type="button"
+            onClick={() => onRecargar()}
+            disabled={loading}
+            className={`flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+              dm
+                ? 'border-slate-600 bg-slate-800/50 text-slate-200 hover:bg-slate-700/80'
+                : 'border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+            title="Recargar listado"
+          >
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            Recargar
+          </button>
+        </div>
       </div>
+
+      <MovimientoModal
+        open={modalOpen}
+        dm={dm}
+        textPrimary={textPrimary}
+        textSecondary={textSecondary}
+        textMuted={textMuted}
+        btnSecondary={btnSecondary}
+        productos={productos}
+        variantes={variantes}
+        loading={creando}
+        onClose={() => setModalOpen(false)}
+        onSubmit={onCrear}
+      />
 
       {/* Filtros */}
       <div

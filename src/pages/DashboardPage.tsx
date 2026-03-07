@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Sidebar } from '../components/Sidebar'
 import { Navbar } from '../components/Navbar'
 import { VarianteModal } from '../components/VarianteModal'
@@ -27,6 +27,7 @@ import { PromocionesView } from '../views/PromocionesView'
 import { PromocionFormView } from '../views/PromocionFormView'
 import { MovimientosInventarioView } from '../views/MovimientosInventarioView'
 import { TiendaView } from '../views/TiendaView'
+import { ReportesView } from '../views/ReportesView'
 import type { AuthTienda, AuthUser } from '../types'
 import {
   useTiendaConfig,
@@ -41,7 +42,11 @@ import {
   useApartados,
   usePromociones,
   useTopProductos,
+  useReportes,
 } from '../hooks'
+import { API_BASE_URL } from '../config'
+import { imprimirTicketVenta } from '../utils/imprimirTicket'
+import type { VentaConDetalle } from '../types'
 
 interface DashboardPageProps {
   token: string
@@ -88,6 +93,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
   const apartados = useApartados(token)
   const promociones = usePromociones(token)
   const topProductos = useTopProductos(token, 10)
+  const reportes = useReportes(token)
 
   const handleToggleDarkMode = () => {
     setDarkMode((prev) => {
@@ -146,7 +152,11 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
       void productos.cargar()
       void variantes.cargar()
     }
-    if (activePage === 'movimientos') void movimientos.cargar()
+    if (activePage === 'movimientos') {
+      void movimientos.cargar()
+      void productos.cargar()
+      void variantes.cargar()
+    }
     if (activePage === 'dashboard') {
       void ventas.cargar()
       void productos.cargar()
@@ -166,6 +176,28 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
   }
 
   const handleLogoutClick = () => onLogout()
+
+  const handleImprimirTicket = useCallback(
+    async (ventaId: number) => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/ventas/${encodeURIComponent(ventaId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) throw new Error('Error al cargar la venta')
+        const data = (await res.json()) as VentaConDetalle
+        imprimirTicketVenta(data, {
+          nombre: tienda.nombreComercial,
+          direccion: tiendaConfig?.direccion,
+          telefono: tiendaConfig?.telefono,
+        })
+      } catch (err) {
+        console.error(err)
+        const { default: Swal } = await import('sweetalert2')
+        void Swal.fire('Error', 'No se pudo cargar el detalle para imprimir el ticket.', 'error')
+      }
+    },
+    [token, tienda.nombreComercial, tiendaConfig?.direccion, tiendaConfig?.telefono],
+  )
 
   const dm = darkMode
   const bg = dm ? 'bg-slate-950' : 'bg-gray-50'
@@ -239,6 +271,8 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               textMuted={textMuted}
               cardBg={cardBg}
               cardBgHover={cardBgHover}
+              onNavigateToProductos={() => setActivePage('productos')}
+              onNavigateToApartados={() => setActivePage('apartados')}
             />
           )}
 
@@ -416,6 +450,9 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               onVer={ventas.abrirVer}
               onCambiarEstado={ventas.actualizarEstado}
               onEliminar={ventas.eliminar}
+              onExportarExcel={ventas.exportarExcel}
+              onExportarPdf={ventas.exportarPdf}
+              onImprimirTicket={handleImprimirTicket}
             />
           )}
 
@@ -459,6 +496,10 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               token={token}
               ventaId={ventas.viendo.Id}
               onVolver={() => ventas.setDetalleOpen(false)}
+              onDevolucionRegistrada={() => void ventas.cargar()}
+              tiendaNombre={tienda.nombreComercial}
+              tiendaDireccion={tiendaConfig?.direccion}
+              tiendaTelefono={tiendaConfig?.telefono}
             />
           )}
 
@@ -573,7 +614,40 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               tableHead={tableHead}
               tableRow={tableRow}
               btnSecondary={btnSecondary}
+              productos={productos.productos}
+              variantes={variantes.variantes}
+              creando={movimientos.creando}
               onRecargar={() => void movimientos.cargar()}
+              onCrear={movimientos.crear}
+            />
+          )}
+
+          {/* Reportes */}
+          {activePage === 'reportes' && (
+            <ReportesView
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              tableBorder={tableBorder}
+              tableHead={tableHead}
+              tableRow={tableRow}
+              btnSecondary={btnSecondary}
+              stockBajo={reportes.stockBajo}
+              apartadosPorVencer={reportes.apartadosPorVencer}
+              productosMasVendidos={reportes.productosMasVendidos}
+              loadingStockBajo={reportes.loadingStockBajo}
+              loadingApartados={reportes.loadingApartados}
+              loadingTop={reportes.loadingTop}
+              exportingStockBajo={reportes.exportingStockBajo}
+              exportingApartados={reportes.exportingApartados}
+              exportingTop={reportes.exportingTop}
+              onCargarStockBajo={reportes.cargarStockBajo}
+              onCargarApartados={reportes.cargarApartadosPorVencer}
+              onCargarTop={reportes.cargarProductosMasVendidos}
+              onExportStockBajo={reportes.exportarStockBajoExcel}
+              onExportApartados={reportes.exportarApartadosExcel}
+              onExportTop={reportes.exportarProductosMasVendidosExcel}
             />
           )}
 

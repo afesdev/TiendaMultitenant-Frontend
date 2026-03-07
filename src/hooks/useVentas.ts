@@ -163,6 +163,52 @@ export function useVentas(token: string, options?: UseVentasOptions) {
     [token, cargar],
   )
 
+  const exportarExcel = useCallback(
+    async (desde?: string, hasta?: string) => {
+      try {
+        const params = new URLSearchParams()
+        if (desde) params.set('desde', desde)
+        if (hasta) params.set('hasta', hasta)
+        const url = `${API_BASE_URL}/ventas/export/excel${params.toString() ? `?${params}` : ''}`
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        if (!response.ok) throw new Error('Error al exportar')
+        const blob = await response.blob()
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `ventas_${new Date().toISOString().slice(0, 10)}.xlsx`
+        a.click()
+        URL.revokeObjectURL(a.href)
+        void Swal.fire('Éxito', 'Archivo Excel descargado', 'success')
+      } catch (err) {
+        void Swal.fire('Error', err instanceof Error ? err.message : 'Error al exportar', 'error')
+      }
+    },
+    [token],
+  )
+
+  const exportarPdf = useCallback(
+    async (desde?: string, hasta?: string) => {
+      try {
+        const params = new URLSearchParams()
+        if (desde) params.set('desde', desde)
+        if (hasta) params.set('hasta', hasta)
+        const url = `${API_BASE_URL}/ventas/export/pdf${params.toString() ? `?${params}` : ''}`
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+        if (!response.ok) throw new Error('Error al exportar')
+        const blob = await response.blob()
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = `ventas_${new Date().toISOString().slice(0, 10)}.pdf`
+        a.click()
+        URL.revokeObjectURL(a.href)
+        void Swal.fire('Éxito', 'Archivo PDF descargado', 'success')
+      } catch (err) {
+        void Swal.fire('Error', err instanceof Error ? err.message : 'Error al exportar', 'error')
+      }
+    },
+    [token],
+  )
+
   return {
     ventas,
     loading,
@@ -171,6 +217,8 @@ export function useVentas(token: string, options?: UseVentasOptions) {
     crear,
     eliminar,
     actualizarEstado,
+    exportarExcel,
+    exportarPdf,
     formOpen,
     setFormOpen,
     detalleOpen,

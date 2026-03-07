@@ -11,6 +11,9 @@ import {
   Plus,
   Trash2,
   Eye,
+  FileSpreadsheet,
+  FileText,
+  Printer,
 } from 'lucide-react'
 import type { VentaResumen } from '../types'
 
@@ -30,9 +33,14 @@ interface VentasViewProps {
   onVer: (venta: VentaResumen) => void
   onCambiarEstado: (venta: VentaResumen, nuevoEstado: string) => void
   onEliminar: (venta: VentaResumen) => void
+  onExportarExcel: (desde?: string, hasta?: string) => void
+  onExportarPdf: (desde?: string, hasta?: string) => void
+  /** Imprimir ticket de la venta (recibe el id de la venta) */
+  onImprimirTicket?: (ventaId: number) => void
 }
 
 type RangoFecha = 'hoy' | '7dias' | 'mes' | 'todo'
+type FiltroEstado = 'TODOS' | 'Pendiente' | 'EnProceso' | 'Envio' | 'Completado' | 'Cancelado'
 
 const PAGE_SIZE = 10
 
@@ -52,6 +60,9 @@ export function VentasView({
   onVer,
   onCambiarEstado,
   onEliminar,
+  onExportarExcel,
+  onExportarPdf,
+  onImprimirTicket,
 }: VentasViewProps) {
   const ESTADOS_VENTA = [
     { value: 'Pendiente', label: 'Pendiente' },
@@ -62,6 +73,7 @@ export function VentasView({
   ]
   const [searchTerm, setSearchTerm] = useState('')
   const [filterRango, setFilterRango] = useState<RangoFecha>('hoy')
+  const [filterEstado, setFilterEstado] = useState<FiltroEstado>('TODOS')
   const [currentPage, setCurrentPage] = useState(1)
 
   const hoy = new Date()
@@ -89,15 +101,19 @@ export function VentasView({
         }
       }
 
+      const matchesEstado =
+        filterEstado === 'TODOS' ||
+        (v.Estado ?? '').toUpperCase() === filterEstado.toUpperCase()
+
       const matchesSearch =
         !lowerSearch ||
         v.ClienteNombre.toLowerCase().includes(lowerSearch) ||
         (v.MetodoPago ?? '').toLowerCase().includes(lowerSearch) ||
         (v.TipoVenta ?? '').toLowerCase().includes(lowerSearch)
 
-      return matchesRango && matchesSearch
+      return matchesRango && matchesEstado && matchesSearch
     })
-  }, [ventas, searchTerm, filterRango, hoy, inicioHoy])
+  }, [ventas, searchTerm, filterRango, filterEstado, hoy, inicioHoy])
 
   const totalPages = Math.max(1, Math.ceil(ventasFiltradas.length / PAGE_SIZE))
   const currentPageSafe = Math.min(currentPage, totalPages)
@@ -114,6 +130,35 @@ export function VentasView({
 
   const totalFiltrado = ventasFiltradas.reduce((acc, v) => acc + v.Total, 0)
 
+  const getRangoExport = () => {
+    if (filterRango === 'hoy') {
+      const d = new Date(inicioHoy)
+      return { desde: d.toISOString().slice(0, 10), hasta: d.toISOString().slice(0, 10) }
+    }
+    if (filterRango === '7dias') {
+      const fin = new Date(inicioHoy)
+      const ini = new Date(inicioHoy)
+      ini.setDate(ini.getDate() - 6)
+      return { desde: ini.toISOString().slice(0, 10), hasta: fin.toISOString().slice(0, 10) }
+    }
+    if (filterRango === 'mes') {
+      const ini = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+      const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0)
+      return { desde: ini.toISOString().slice(0, 10), hasta: fin.toISOString().slice(0, 10) }
+    }
+    return { desde: undefined, hasta: undefined }
+  }
+
+  const handleExportExcel = () => {
+    const { desde, hasta } = getRangoExport()
+    onExportarExcel(desde, hasta)
+  }
+
+  const handleExportPdf = () => {
+    const { desde, hasta } = getRangoExport()
+    onExportarPdf(desde, hasta)
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto w-full space-y-6">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -129,6 +174,34 @@ export function VentasView({
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={loading}
+            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all active:scale-95 disabled:opacity-50 ${
+              dm
+                ? 'border-green-600/50 bg-green-600/20 text-green-400 hover:bg-green-600/30'
+                : 'border-green-600 bg-green-50 text-green-700 hover:bg-green-100'
+            }`}
+            title="Exportar a Excel"
+          >
+            <FileSpreadsheet size={18} />
+            Excel
+          </button>
+          <button
+            type="button"
+            onClick={handleExportPdf}
+            disabled={loading}
+            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-all active:scale-95 disabled:opacity-50 ${
+              dm
+                ? 'border-rose-600/50 bg-rose-600/20 text-rose-400 hover:bg-rose-600/30'
+                : 'border-rose-600 bg-rose-50 text-rose-700 hover:bg-rose-100'
+            }`}
+            title="Exportar a PDF"
+          >
+            <FileText size={18} />
+            PDF
+          </button>
           <button
             type="button"
             onClick={() => onRecargar()}
@@ -194,6 +267,29 @@ export function VentasView({
               <option value="7dias">Últimos 7 días</option>
               <option value="mes">Este mes</option>
               <option value="todo">Todo el historial</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 min-w-[180px]">
+            <Filter className="text-slate-400" size={16} />
+            <select
+              value={filterEstado}
+              onChange={(e) => {
+                setFilterEstado(e.target.value as FiltroEstado)
+                setCurrentPage(1)
+              }}
+              className={`flex-1 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
+                dm
+                  ? 'bg-slate-800 border-slate-700 text-slate-100'
+                  : 'bg-gray-50 border-gray-200 text-gray-900'
+              }`}
+            >
+              <option value="TODOS">Todos los estados</option>
+              {ESTADOS_VENTA.map((e) => (
+                <option key={e.value} value={e.value}>
+                  {e.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -358,6 +454,20 @@ export function VentasView({
                         >
                           <Eye size={16} />
                         </button>
+                        {onImprimirTicket && (
+                          <button
+                            type="button"
+                            onClick={() => onImprimirTicket(v.Id)}
+                            className={`p-1.5 rounded-lg transition-all ${
+                              dm
+                                ? 'hover:bg-slate-800 text-slate-400 hover:text-slate-300'
+                                : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+                            } hover:scale-110`}
+                            title="Imprimir ticket"
+                          >
+                            <Printer size={16} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => onEliminar(v)}

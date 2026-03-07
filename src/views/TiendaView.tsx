@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
-import { Building2, Globe2, Mail, Save, RefreshCw } from 'lucide-react'
+import { Building2, Globe2, Mail, Save, RefreshCw, MapPin, Phone, Clock } from 'lucide-react'
 import { API_BASE_URL } from '../config'
 import type { TiendaConfig, TiendaPanel } from '../types'
 
@@ -29,6 +29,9 @@ export function TiendaView({
   const [nombreComercial, setNombreComercial] = useState('')
   const [slug, setSlug] = useState('')
   const [emailContacto, setEmailContacto] = useState('')
+  const [direccion, setDireccion] = useState('')
+  const [telefono, setTelefono] = useState('')
+  const [horarios, setHorarios] = useState('')
   const [themePrimary, setThemePrimary] = useState('#10b981')
   const [themeSidebarBg, setThemeSidebarBg] = useState('#020617')
   const [themeNavbarBg, setThemeNavbarBg] = useState('#ffffff')
@@ -75,6 +78,9 @@ export function TiendaView({
         setWhatsapp(cfg.social.whatsapp ?? '')
         setTiktok(cfg.social.tiktok ?? '')
       }
+      setDireccion(cfg?.direccion ?? '')
+      setTelefono(cfg?.telefono ?? '')
+      setHorarios(cfg?.horarios ?? '')
     } catch (err) {
       console.error(err)
       // Es mejor mostrar un alert en Dashboard; aquí dejamos el error en consola
@@ -106,6 +112,9 @@ export function TiendaView({
           whatsapp: whatsapp || undefined,
           tiktok: tiktok || undefined,
         },
+        direccion: direccion.trim() || undefined,
+        telefono: telefono.trim() || undefined,
+        horarios: horarios.trim() || undefined,
       }
 
       const response = await fetch(`${API_BASE_URL}/tienda`, {
@@ -154,7 +163,7 @@ export function TiendaView({
             <h2 className={`text-xl font-bold ${textPrimary}`}>Configuración de la tienda</h2>
           </div>
           <p className={`text-sm ${textSecondary}`}>
-            Edita los datos básicos de tu tienda: nombre, slug público y correo de contacto.
+            Edita los datos de tu tienda: nombre, slug, contacto, dirección, teléfono y horarios para la tienda pública.
           </p>
         </div>
         <button
@@ -265,6 +274,87 @@ export function TiendaView({
               </div>
               <p className={`text-[11px] ${textMuted}`}>
                 Se usará para notificaciones y contacto con clientes.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className={`block text-xs font-semibold ${textPrimary}`}>
+                Dirección
+              </label>
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  dm
+                    ? 'border-slate-700 bg-slate-950/60'
+                    : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <MapPin size={16} className="text-emerald-500 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={direccion}
+                  onChange={(e) => setDireccion(e.target.value)}
+                  className={`flex-1 bg-transparent border-none text-xs focus:outline-none ${
+                    dm ? 'text-slate-100' : 'text-gray-900'
+                  }`}
+                  placeholder="Ej: Cra 10 #20-30, Local 5"
+                />
+              </div>
+              <p className={`text-[11px] ${textMuted}`}>
+                Dirección física para mostrar en la tienda pública.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className={`block text-xs font-semibold ${textPrimary}`}>
+                Teléfono
+              </label>
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  dm
+                    ? 'border-slate-700 bg-slate-950/60'
+                    : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <Phone size={16} className="text-emerald-500 flex-shrink-0" />
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  className={`flex-1 bg-transparent border-none text-xs focus:outline-none ${
+                    dm ? 'text-slate-100' : 'text-gray-900'
+                  }`}
+                  placeholder="Ej: 300 123 4567"
+                />
+              </div>
+              <p className={`text-[11px] ${textMuted}`}>
+                Teléfono de contacto para la tienda pública.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className={`block text-xs font-semibold ${textPrimary}`}>
+                Horarios de atención
+              </label>
+              <div
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  dm
+                    ? 'border-slate-700 bg-slate-950/60'
+                    : 'border-gray-200 bg-gray-50'
+                }`}
+              >
+                <Clock size={16} className="text-emerald-500 flex-shrink-0" />
+                <input
+                  type="text"
+                  value={horarios}
+                  onChange={(e) => setHorarios(e.target.value)}
+                  className={`flex-1 bg-transparent border-none text-xs focus:outline-none ${
+                    dm ? 'text-slate-100' : 'text-gray-900'
+                  }`}
+                  placeholder="Ej: Lun-Vie 8:00-18:00, Sáb 9:00-13:00"
+                />
+              </div>
+              <p className={`text-[11px] ${textMuted}`}>
+                Horarios que se mostrarán en la tienda pública.
               </p>
             </div>
 

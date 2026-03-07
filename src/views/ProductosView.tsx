@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronLeft,
   RefreshCw,
+  Printer,
 } from 'lucide-react'
 import type { Producto } from '../types'
 
@@ -59,7 +60,87 @@ export function ProductosView({
   const [filterCategoria, setFilterCategoria] = useState('Todas')
   const [filterEstado, setFilterEstado] = useState<'Todos' | 'Activos' | 'Ocultos'>('Todos')
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const pageSize = 10
+
+  const productosConBarras = useMemo(
+    () => productos.filter((p) => p.CodigoBarras?.trim()),
+    [productos],
+  )
+  const seleccionadosConBarras = useMemo(
+    () => productosConBarras.filter((p) => selectedIds.has(p.Id)),
+    [productosConBarras, selectedIds],
+  )
+
+  const toggleSeleccion = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSeleccionarTodos = () => {
+    const conBarras = pageItems.filter((p) => p.CodigoBarras?.trim())
+    const todosSeleccionados = conBarras.every((p) => selectedIds.has(p.Id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      for (const p of conBarras) {
+        if (todosSeleccionados) next.delete(p.Id)
+        else next.add(p.Id)
+      }
+      return next
+    })
+  }
+
+  const imprimirEtiquetasMasivo = () => {
+    if (seleccionadosConBarras.length === 0) return
+    const ventana = window.open('', '_blank', 'width=900,height=700')
+    if (!ventana) return
+    const fmt = (n: number) =>
+      n.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })
+    const items = seleccionadosConBarras
+      .map(
+        (p) => `
+      <div class="etiqueta" style="border:1px solid #ddd;padding:12px;text-align:center;page-break-inside:avoid">
+        <p style="font-weight:bold;font-size:12px;margin:0 0 4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;margin-left:auto;margin-right:auto">${p.Nombre.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+        <p style="font-size:16px;font-weight:bold;margin:0 0 8px 0">${fmt(p.PrecioDetal)}</p>
+        <div id="bc-${p.Id}"></div>
+      </div>`,
+      )
+      .join('')
+    const scripts = seleccionadosConBarras
+      .map(
+        (p) => `
+      try { JsBarcode("#bc-${p.Id}", "${(p.CodigoBarras ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", { format: "CODE128", width: 1.5, height: 50, displayValue: true, fontSize: 10 }); } catch(e) { document.getElementById("bc-${p.Id}").innerText = "${(p.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }`,
+      )
+      .join('\n')
+    ventana.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Etiquetas</title>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
+        <style>
+          body { font-family: sans-serif; padding: 16px; }
+          .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+          @media print { .grid { gap: 8px; } .no-print { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="no-print" style="margin-bottom:16px">
+          <button onclick="window.print()" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold">Imprimir</button>
+          <button onclick="window.close()" style="margin-left:8px;padding:8px 16px;background:#64748b;color:white;border:none;border-radius:8px;cursor:pointer">Cerrar</button>
+        </div>
+        <div class="grid">${items}</div>
+        <script>${scripts}</script>
+      </body>
+      </html>
+    `)
+    ventana.document.close()
+    ventana.focus()
+  }
 
   const categoriasUnicas = useMemo(() => {
     const cats = new Set<string>()
@@ -208,13 +289,23 @@ export function ProductosView({
       {/* Tabla de productos */}
       <div className={`rounded-2xl border overflow-hidden shadow-sm ${dm ? 'bg-slate-900/40 border-slate-800' : 'bg-white border-gray-200'}`}>
         <div
-          className={`border-b px-6 py-4 flex items-center justify-between ${tableBorder}`}
+          className={`border-b px-6 py-4 flex flex-wrap items-center justify-between gap-3 ${tableBorder}`}
         >
           <div className="flex items-center gap-3">
             <p className={`text-sm font-bold ${textPrimary}`}>Listado de productos</p>
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${dm ? 'bg-slate-800 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
               {productosFiltrados.length} items
             </span>
+            {seleccionadosConBarras.length > 0 && (
+              <button
+                type="button"
+                onClick={imprimirEtiquetasMasivo}
+                className="flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+              >
+                <Printer size={14} />
+                Imprimir {seleccionadosConBarras.length} etiqueta(s)
+              </button>
+            )}
           </div>
           {loading && (
              <div className="flex items-center gap-2 text-emerald-500 font-medium">
@@ -228,6 +319,20 @@ export function ProductosView({
           <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-800">
             <thead>
               <tr className={`${tableHead}`}>
+                <th className="px-4 py-4 w-10">
+                  <input
+                    type="checkbox"
+                    checked={
+                      pageItems.some((p) => p.CodigoBarras?.trim()) &&
+                      pageItems
+                        .filter((p) => p.CodigoBarras?.trim())
+                        .every((p) => selectedIds.has(p.Id))
+                    }
+                    onChange={toggleSeleccionarTodos}
+                    className="rounded border-gray-400"
+                    title="Seleccionar todos (solo con código de barras)"
+                  />
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Producto</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Clasificación</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Inventario</th>
@@ -241,7 +346,7 @@ export function ProductosView({
             <tbody className={`divide-y ${dm ? 'divide-slate-800' : 'divide-gray-100'}`}>
               {productosFiltrados.length === 0 && !loading && (
                 <tr>
-                  <td colSpan={8} className={`px-6 py-20 text-center ${textMuted}`}>
+                  <td colSpan={9} className={`px-6 py-20 text-center ${textMuted}`}>
                     <div className="flex flex-col items-center gap-3">
                       <Package size={48} className="opacity-20" />
                       <p className="text-base font-medium">No se encontraron productos en el catálogo.</p>
@@ -260,6 +365,18 @@ export function ProductosView({
 
               {pageItems.map((prod) => (
                 <tr key={prod.Id} className={`group transition-colors ${tableRow}`}>
+                  <td className="px-4 py-4">
+                    {prod.CodigoBarras?.trim() ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(prod.Id)}
+                        onChange={() => toggleSeleccion(prod.Id)}
+                        className="rounded border-gray-400"
+                      />
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-12 w-12 rounded-xl overflow-hidden mr-3 flex items-center justify-center border border-slate-200 dark:border-slate-700 bg-slate-900/5">

@@ -21,6 +21,8 @@ import {
   Tag,
   Receipt,
   CalendarDays,
+  ChevronRight,
+  AlertCircle,
 } from 'lucide-react'
 import type {
   AuthTienda,
@@ -60,6 +62,8 @@ function getLast7Days(): string[] {
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4']
 
+const UMBRAL_STOCK_BAJO = 5
+
 interface DashboardViewProps {
   user: AuthUser
   tienda: AuthTienda
@@ -77,6 +81,10 @@ interface DashboardViewProps {
   textMuted: string
   cardBg: string
   cardBgHover: string
+  /** Navegar a la página de productos */
+  onNavigateToProductos?: () => void
+  /** Navegar a la página de apartados */
+  onNavigateToApartados?: () => void
 }
 
 export function DashboardView({
@@ -96,6 +104,8 @@ export function DashboardView({
   textMuted,
   cardBg,
   cardBgHover,
+  onNavigateToProductos,
+  onNavigateToApartados,
 }: DashboardViewProps) {
   const todayKey = useMemo(() => {
     const d = new Date()
@@ -160,14 +170,19 @@ export function DashboardView({
     year: 'numeric',
   })
 
-  const productosStockBajo = useMemo(
-    () => productos.filter((p) => p.StockActual > 0 && p.StockActual <= 5).length,
+  const listaStockBajo = useMemo(
+    () =>
+      productos
+        .filter((p) => p.StockActual > 0 && p.StockActual <= UMBRAL_STOCK_BAJO)
+        .sort((a, b) => a.StockActual - b.StockActual),
     [productos],
   )
-  const productosSinStock = useMemo(
-    () => productos.filter((p) => p.StockActual <= 0).length,
+  const listaSinStock = useMemo(
+    () => productos.filter((p) => p.StockActual <= 0),
     [productos],
   )
+  const productosStockBajo = listaStockBajo.length
+  const productosSinStock = listaSinStock.length
 
   const promocionesActivas = useMemo(() => {
     const hoy = new Date()
@@ -271,11 +286,12 @@ export function DashboardView({
       color: 'violet',
     },
     {
-      label: 'Stock bajo (≤5)',
+      label: `Stock bajo (≤${UMBRAL_STOCK_BAJO})`,
       value: String(productosStockBajo),
       sub: productosStockBajo > 0 ? 'Requieren atención' : 'Todo en orden',
       icon: <AlertTriangle size={20} />,
       color: productosStockBajo > 0 ? 'amber' : 'slate',
+      onClick: productosStockBajo > 0 ? onNavigateToProductos : undefined,
     },
     {
       label: 'Sin stock',
@@ -283,6 +299,7 @@ export function DashboardView({
       sub: productosSinStock > 0 ? 'Productos agotados' : 'Ninguno',
       icon: <AlertTriangle size={20} />,
       color: productosSinStock > 0 ? 'red' : 'slate',
+      onClick: productosSinStock > 0 ? onNavigateToProductos : undefined,
     },
     {
       label: 'Clientes',
@@ -296,7 +313,8 @@ export function DashboardView({
       value: String(apartadosPendientes),
       sub: apartadosPorVencer > 0 ? `${apartadosPorVencer} por vencer` : 'Ninguno',
       icon: <ShoppingBag size={20} />,
-      color: 'amber',
+      color: apartadosPorVencer > 0 ? 'amber' : 'slate',
+      onClick: apartadosPorVencer > 0 ? onNavigateToApartados : undefined,
     },
     {
       label: 'Promociones activas',
@@ -348,10 +366,16 @@ export function DashboardView({
       ) : (
         <>
           <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {metrics.map(({ label, value, sub, icon, color }) => (
+            {metrics.map(({ label, value, sub, icon, color, onClick }) => (
               <div
                 key={label}
-                className={`rounded-xl sm:rounded-2xl border p-4 sm:p-5 flex items-start gap-3 sm:gap-4 transition-colors ${cardBg} ${cardBgHover}`}
+                role={onClick ? 'button' : undefined}
+                tabIndex={onClick ? 0 : undefined}
+                onClick={onClick}
+                onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+                className={`rounded-xl sm:rounded-2xl border p-4 sm:p-5 flex items-start gap-3 sm:gap-4 transition-colors ${cardBg} ${cardBgHover} ${
+                  onClick ? 'cursor-pointer active:scale-[0.98]' : ''
+                }`}
               >
                 <div
                   className={`p-2 sm:p-3 rounded-lg sm:rounded-xl flex-shrink-0 border ${
@@ -383,11 +407,138 @@ export function DashboardView({
                   <p className={`mt-1 text-lg sm:text-xl font-extrabold truncate ${textPrimary}`}>
                     {value}
                   </p>
-                  <p className={`mt-1 text-xs ${textMuted} line-clamp-2`}>{sub}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className={`text-xs ${textMuted} line-clamp-2 flex-1 min-w-0`}>{sub}</p>
+                    {onClick && (
+                      <ChevronRight size={14} className={`flex-shrink-0 ${textMuted}`} />
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+
+          {(productosStockBajo > 0 || productosSinStock > 0 || apartadosPorVencer > 0) && (
+            <div
+              className={`rounded-xl sm:rounded-2xl border overflow-hidden ${
+                dm ? 'bg-amber-500/5 border-amber-500/30' : 'bg-amber-50 border-amber-200'
+              }`}
+            >
+              <div className="flex items-center gap-3 px-4 py-3 border-b border-amber-500/20">
+                <div className="p-2 rounded-lg bg-amber-500/20 text-amber-600">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <h3 className={`text-sm font-bold ${textPrimary}`}>Alertas que requieren atención</h3>
+                  <p className={`text-xs ${textMuted}`}>
+                    {productosStockBajo > 0 && `${productosStockBajo} producto${productosStockBajo !== 1 ? 's' : ''} con stock bajo`}
+                    {productosStockBajo > 0 && productosSinStock > 0 && ' · '}
+                    {productosSinStock > 0 && `${productosSinStock} producto${productosSinStock !== 1 ? 's' : ''} sin stock`}
+                    {((productosStockBajo > 0 || productosSinStock > 0) && apartadosPorVencer > 0) && ' · '}
+                    {apartadosPorVencer > 0 && `${apartadosPorVencer} apartado${apartadosPorVencer !== 1 ? 's' : ''} por vencer`}
+                  </p>
+                </div>
+                <div className="ml-auto flex gap-2">
+                  {(productosStockBajo > 0 || productosSinStock > 0) && onNavigateToProductos && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToProductos}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-700 hover:bg-amber-500/30 transition-colors"
+                    >
+                      Ver productos
+                    </button>
+                  )}
+                  {apartadosPorVencer > 0 && onNavigateToApartados && (
+                    <button
+                      type="button"
+                      onClick={onNavigateToApartados}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 text-amber-700 hover:bg-amber-500/30 transition-colors"
+                    >
+                      Ver apartados
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {listaStockBajo.length > 0 && (
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-wider ${textMuted} mb-2`}>
+                      Stock bajo (≤{UMBRAL_STOCK_BAJO} unidades)
+                    </p>
+                    <ul className="space-y-1.5">
+                      {listaStockBajo.slice(0, 5).map((p) => (
+                        <li key={p.Id} className={`flex items-center justify-between gap-2 text-sm ${textSecondary}`}>
+                          <span className="truncate">{p.Nombre}</span>
+                          <span className={`text-xs font-bold ${textPrimary} flex-shrink-0`}>
+                            {p.StockActual} ud.
+                          </span>
+                        </li>
+                      ))}
+                      {listaStockBajo.length > 5 && (
+                        <li className={`text-xs ${textMuted}`}>
+                          +{listaStockBajo.length - 5} más
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {listaSinStock.length > 0 && (
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-wider ${textMuted} mb-2`}>
+                      Sin stock
+                    </p>
+                    <ul className="space-y-1.5">
+                      {listaSinStock.slice(0, 5).map((p) => (
+                        <li key={p.Id} className={`flex items-center justify-between gap-2 text-sm ${textSecondary}`}>
+                          <span className="truncate">{p.Nombre}</span>
+                          <span className="text-xs font-bold text-red-500 flex-shrink-0">0 ud.</span>
+                        </li>
+                      ))}
+                      {listaSinStock.length > 5 && (
+                        <li className={`text-xs ${textMuted}`}>
+                          +{listaSinStock.length - 5} más
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+                {apartadosPorVencer > 0 && (
+                  <div>
+                    <p className={`text-xs font-bold uppercase tracking-wider ${textMuted} mb-2`}>
+                      Apartados por vencer (7 días)
+                    </p>
+                    <ul className="space-y-1.5">
+                      {apartados
+                        .filter((a) => {
+                          if (a.Estado !== 'Pendiente') return false
+                          const venc = new Date(a.FechaVencimiento)
+                          const en7Dias = new Date()
+                          en7Dias.setDate(en7Dias.getDate() + 7)
+                          return venc <= en7Dias && venc >= new Date()
+                        })
+                        .slice(0, 5)
+                        .map((a) => (
+                          <li key={a.Id} className={`flex items-center justify-between gap-2 text-sm ${textSecondary}`}>
+                            <span className="truncate">{a.ClienteNombre}</span>
+                            <span className={`text-xs ${textMuted} flex-shrink-0`}>
+                              {new Date(a.FechaVencimiento).toLocaleDateString('es-CO', {
+                                day: '2-digit',
+                                month: 'short',
+                              })}
+                            </span>
+                          </li>
+                        ))}
+                      {apartadosPorVencer > 5 && (
+                        <li className={`text-xs ${textMuted}`}>
+                          +{apartadosPorVencer - 5} más
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className={`rounded-xl sm:rounded-2xl border p-4 sm:p-6 ${cardBg}`}>
             <h3 className={`text-sm sm:text-base font-bold ${textPrimary}`}>

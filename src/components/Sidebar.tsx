@@ -14,6 +14,7 @@ import {
   Activity,
   Bookmark,
   Percent,
+  BarChart3,
 } from 'lucide-react'
 
 type LucideIcon = React.ComponentType<{ size?: number; className?: string }>
@@ -36,6 +37,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: 'promociones', label: 'Promociones', Icon: Percent },
       { key: 'movimientos', label: 'Movimientos', Icon: Activity },
       { key: 'repartidores', label: 'Repartidores', Icon: Bike },
+      { key: 'reportes', label: 'Reportes', Icon: BarChart3 },
     ],
   },
   {

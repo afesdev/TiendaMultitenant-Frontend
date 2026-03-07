@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Package,
@@ -18,10 +18,12 @@ import {
   Eye,
   EyeOff,
   Barcode,
+  Printer,
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 import { API_BASE_URL } from '../config'
 import type { ProductoConDetalle } from '../types'
+import { EtiquetaBarcode } from './EtiquetaBarcode'
 
 interface ProductoDetalleViewProps {
   dm: boolean
@@ -48,6 +50,7 @@ export function ProductoDetalleView({
 }: ProductoDetalleViewProps) {
   const [data, setData] = useState<ProductoConDetalle | null>(null)
   const [loading, setLoading] = useState(false)
+  const barcodeCanvasRef = useRef<HTMLCanvasElement | null>(null)
 
   useEffect(() => {
     const fetchDetalle = async () => {
@@ -268,6 +271,57 @@ export function ProductoDetalleView({
                     </span>
                   </div>
                 </div>
+
+                {prod.CodigoBarras && (
+                  <div className={`mt-4 pt-4 border-t ${divider}`}>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <div className={`rounded-xl border p-3 ${surfaceAlt} flex items-center gap-3`}>
+                        <EtiquetaBarcode
+                          ref={barcodeCanvasRef}
+                          codigo={prod.CodigoBarras}
+                          nombre={prod.Nombre}
+                          precio={prod.PrecioDetal}
+                          className={dm ? 'text-slate-100' : ''}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const canvas = barcodeCanvasRef.current
+                          const imgData = canvas?.toDataURL?.('image/png') ?? ''
+                          const ventana = window.open('', '_blank', 'width=400,height=320')
+                          if (!ventana) return
+                          const nombreEsc = prod.Nombre.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                          ventana.document.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head><title>Etiqueta - ${nombreEsc}</title></head>
+                            <body style="margin:0;padding:16px;font-family:sans-serif;text-align:center">
+                              ${imgData ? `<img src="${imgData}" alt="Código de barras" style="max-width:100%" />` : `<p>${prod.CodigoBarras}</p>`}
+                              <p style="font-weight:bold;margin-top:8px">${nombreEsc}</p>
+                              <p style="font-size:18px;font-weight:bold">${fmt(prod.PrecioDetal)}</p>
+                            </body>
+                            </html>
+                          `)
+                          ventana.document.close()
+                          ventana.focus()
+                          setTimeout(() => {
+                            ventana.print()
+                            ventana.close()
+                          }, 300)
+                        }}
+                        className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all active:scale-95 ${
+                          dm
+                            ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40'
+                            : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30'
+                        }`}
+                      >
+                        <Printer size={18} />
+                        Imprimir etiqueta
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -241,8 +241,14 @@ export interface TiendaConfigSocial {
 }
 
 export interface TiendaConfig {
-  theme: TiendaConfigTheme
-  social: TiendaConfigSocial
+  theme?: TiendaConfigTheme
+  social?: TiendaConfigSocial
+  /** Dirección física de la tienda */
+  direccion?: string
+  /** Teléfono de contacto */
+  telefono?: string
+  /** Horarios de atención (ej: "Lun-Vie 8:00-18:00, Sáb 9:00-13:00") */
+  horarios?: string
 }
 
 export interface TiendaPanel {
