@@ -17,6 +17,11 @@ export function usePromociones(token: string) {
       const response = await fetch(`${API_BASE_URL}/promociones`, {
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (response.status === 404) {
+        // Backend antiguo sin endpoint de promociones: mostrar lista vacía
+        setPromociones([])
+        return
+      }
       if (!response.ok) throw new Error('Error al cargar promociones')
       const data = (await response.json()) as PromocionResumen[]
       setPromociones(data)

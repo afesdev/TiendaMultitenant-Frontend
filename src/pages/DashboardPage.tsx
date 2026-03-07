@@ -40,6 +40,7 @@ import {
   useProductos,
   useApartados,
   usePromociones,
+  useTopProductos,
 } from '../hooks'
 
 interface DashboardPageProps {
@@ -76,10 +77,17 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
   const repartidores = useRepartidores(token)
   const clientes = useClientes(token)
   const variantes = useVariantes(token)
-  const ventas = useVentas(token)
+  const ventas = useVentas(token, {
+    onStockError: (productoId) => {
+      setActivePage('productos')
+      const p = productos.productos.find((x) => x.Id === productoId)
+      if (p) void productos.abrirEditar(p)
+    },
+  })
   const productos = useProductos(token, { onVariantesReload: variantes.cargar })
   const apartados = useApartados(token)
   const promociones = usePromociones(token)
+  const topProductos = useTopProductos(token, 10)
 
   const handleToggleDarkMode = () => {
     setDarkMode((prev) => {
@@ -143,6 +151,9 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
       void ventas.cargar()
       void productos.cargar()
       void clientes.cargar()
+      void apartados.cargar()
+      void promociones.cargar()
+      void topProductos.cargar()
     }
   }, [token, activePage])
 
@@ -208,10 +219,20 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
             <DashboardView
               user={user}
               tienda={tienda}
-              ventasCount={ventas.ventas.length}
-              productosCount={productos.productos.length}
+              ventas={ventas.ventas}
+              productos={productos.productos}
               clientesCount={clientes.clientes.length}
-              loading={ventas.loading || productos.loading || clientes.loading}
+              apartados={apartados.apartados}
+              promociones={promociones.promociones}
+              topProductos={topProductos.topProductos}
+              topProductosLoading={topProductos.loading}
+              loading={
+                ventas.loading ||
+                productos.loading ||
+                clientes.loading ||
+                apartados.loading ||
+                promociones.loading
+              }
               dm={dm}
               textPrimary={textPrimary}
               textSecondary={textSecondary}

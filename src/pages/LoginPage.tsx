@@ -6,10 +6,13 @@ interface LoginPageProps {
   onAuthSuccess: (data: LoginResponse) => void
 }
 
+const LOGIN_EMAIL_KEY = 'login_email'
+const LOGIN_TIENDA_SLUG_KEY = 'login_tienda_slug'
+
 export function LoginPage({ onAuthSuccess }: LoginPageProps) {
-  const [email, setEmail] = useState('')
+  const [email, setEmail] = useState(() => localStorage.getItem(LOGIN_EMAIL_KEY) ?? '')
   const [password, setPassword] = useState('')
-  const [tiendaSlug, setTiendaSlug] = useState('')
+  const [tiendaSlug, setTiendaSlug] = useState(() => localStorage.getItem(LOGIN_TIENDA_SLUG_KEY) ?? '')
   const [loadingLogin, setLoadingLogin] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
 
@@ -39,6 +42,8 @@ export function LoginPage({ onAuthSuccess }: LoginPageProps) {
       }
 
       const data = (await response.json()) as LoginResponse
+      localStorage.setItem(LOGIN_EMAIL_KEY, email)
+      localStorage.setItem(LOGIN_TIENDA_SLUG_KEY, tiendaSlug)
       onAuthSuccess(data)
       setPassword('')
     } catch (err) {

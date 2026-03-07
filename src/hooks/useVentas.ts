@@ -3,7 +3,12 @@ import Swal from 'sweetalert2'
 import { API_BASE_URL } from '../config'
 import type { NuevaVentaPayload, VentaResumen } from '../types'
 
-export function useVentas(token: string) {
+export interface UseVentasOptions {
+  onStockError?: (productoId: number) => void
+}
+
+export function useVentas(token: string, options?: UseVentasOptions) {
+  const { onStockError } = options ?? {}
   const [ventas, setVentas] = useState<VentaResumen[]>([])
   const [loading, setLoading] = useState(false)
   const [creando, setCreando] = useState(false)
@@ -40,8 +45,39 @@ export function useVentas(token: string) {
           },
           body: JSON.stringify(payload),
         })
-        const data = (await response.json().catch(() => ({}))) as { message?: string }
+        const data = (await response.json().catch(() => ({}))) as {
+          message?: string
+          code?: string
+          productoId?: number
+          productoNombre?: string
+          varianteDesc?: string | null
+          stockDisponible?: number
+          cantidadSolicitada?: number
+        }
         if (!response.ok) {
+          if (data.code === 'STOCK_INSUFICIENTE' && data.productoId != null) {
+            const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+            const desc = data.productoNombre
+              ? data.varianteDesc
+                ? esc(`${data.productoNombre} (${data.varianteDesc})`)
+                : esc(data.productoNombre)
+              : `Producto #${data.productoId}`
+            const result = await Swal.fire({
+              icon: 'warning',
+              title: 'Stock insuficiente',
+              html: `<p class="text-left">No hay suficiente stock para <strong>${desc}</strong>.</p>
+                <p class="text-left mt-2 text-sm">Disponible: <strong>${data.stockDisponible ?? 0}</strong> · Solicitado: <strong>${data.cantidadSolicitada ?? 0}</strong></p>
+                ${onStockError ? '<p class="text-left mt-2 text-sm text-gray-500">¿Deseas ir a editar el stock de este producto?</p>' : ''}`,
+              showCancelButton: !!onStockError,
+              confirmButtonText: onStockError ? 'Ir a editar stock' : 'Entendido',
+              cancelButtonText: 'Cerrar',
+              confirmButtonColor: '#10b981',
+            })
+            if (result.isConfirmed && onStockError) {
+              onStockError(data.productoId)
+            }
+            return
+          }
           throw new Error(data.message ?? 'Error al registrar la venta')
         }
         void Swal.fire('Venta registrada', 'La venta se registró correctamente.', 'success')
@@ -58,7 +94,7 @@ export function useVentas(token: string) {
         setCreando(false)
       }
     },
-    [token, cargar],
+    [token, cargar, onStockError],
   )
 
   const eliminar = useCallback(
