@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import Swal from 'sweetalert2'
 import { API_BASE_URL } from '../config'
 import type { ProductoVariante } from '../types'
+import { generarCodigoBarrasEAN13 } from '../utils/generarCodigoBarras'
 
 export function useVariantes(token: string) {
   const [variantes, setVariantes] = useState<ProductoVariante[]>([])
@@ -15,6 +16,7 @@ export function useVariantes(token: string) {
   const [stock, setStock] = useState(0)
   const [precioAdicional, setPrecioAdicional] = useState(0)
   const [sku, setSku] = useState('')
+  const [codigoBarras, setCodigoBarras] = useState('')
 
   const cargar = useCallback(async (): Promise<ProductoVariante[] | null> => {
     setLoading(true)
@@ -65,6 +67,7 @@ export function useVariantes(token: string) {
             stockActual: stock,
             precioAdicional,
             codigoSKU: sku || null,
+            codigoBarras: codigoBarras.trim() || generarCodigoBarrasEAN13(),
           }),
         })
         if (!response.ok) {
@@ -88,7 +91,7 @@ export function useVariantes(token: string) {
         )
       }
     },
-    [token, productoId, atributo, valor, stock, precioAdicional, sku, editando, cargar],
+    [token, productoId, atributo, valor, stock, precioAdicional, sku, codigoBarras, editando, cargar],
   )
 
   const eliminar = useCallback(
@@ -136,6 +139,7 @@ export function useVariantes(token: string) {
     setStock(0)
     setPrecioAdicional(0)
     setSku('')
+    setCodigoBarras('')
     setModalOpen(true)
   }, [])
 
@@ -147,6 +151,7 @@ export function useVariantes(token: string) {
     setStock(v.StockActual)
     setPrecioAdicional(v.PrecioAdicional)
     setSku(v.CodigoSKU ?? '')
+    setCodigoBarras(v.CodigoBarras ?? '')
     setModalOpen(true)
   }, [])
 
@@ -169,6 +174,8 @@ export function useVariantes(token: string) {
     setPrecioAdicional,
     sku,
     setSku,
+    codigoBarras,
+    setCodigoBarras,
     guardar,
     eliminar,
     abrirNueva,

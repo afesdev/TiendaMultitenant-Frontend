@@ -24,6 +24,7 @@ import Swal from 'sweetalert2'
 import { API_BASE_URL } from '../config'
 import type { ProductoConDetalle } from '../types'
 import { EtiquetaBarcode } from './EtiquetaBarcode'
+import { BarcodeMini } from './BarcodeMini'
 
 interface ProductoDetalleViewProps {
   dm: boolean
@@ -420,6 +421,7 @@ export function ProductoDetalleView({
                       <th className="px-5 py-3 text-right text-xs font-bold uppercase">Stock</th>
                       <th className="px-5 py-3 text-right text-xs font-bold uppercase">Precio +</th>
                       <th className="px-5 py-3 text-left text-xs font-bold uppercase">SKU</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold uppercase">Cód. barras</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divider}`}>
@@ -435,6 +437,47 @@ export function ProductoDetalleView({
                         </td>
                         <td className={`px-5 py-3 text-sm font-mono ${textSecondary}`}>
                           {v.CodigoSKU ?? '—'}
+                        </td>
+                        <td className={`px-5 py-3 ${textSecondary}`}>
+                          {v.CodigoBarras ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <BarcodeMini codigo={v.CodigoBarras} height={32} className="shrink-0" />
+                              <span className="text-xs font-mono hidden sm:inline">{v.CodigoBarras}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nombre = `${prod.Nombre} (${v.Atributo}: ${v.Valor})`
+                                  const precio = prod.PrecioDetal + (v.PrecioAdicional ?? 0)
+                                  const codigoEsc = (v.CodigoBarras ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+                                  const nombreEsc = nombre.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                                  const ventana = window.open('', '_blank', 'width=400,height=320')
+                                  if (!ventana) return
+                                  ventana.document.write(`
+                                    <!DOCTYPE html>
+                                    <html>
+                                    <head><title>Etiqueta - ${nombreEsc}</title><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script></head>
+                                    <body style="margin:0;padding:16px;font-family:sans-serif;text-align:center">
+                                      <p style="font-weight:bold;margin:0 0 4px 0">${nombreEsc}</p>
+                                      <p style="font-size:16px;font-weight:bold;margin:0 0 8px 0">${fmt(precio)}</p>
+                                      <div id="bc"><\/div>
+                                      <script>try{ JsBarcode("#bc","${codigoEsc}",{format:"CODE128",width:2,height:50,displayValue:true}); }catch(e){ document.getElementById("bc").innerText="${(v.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }<\/script>
+                                    </body>
+                                    </html>
+                                  `)
+                                  ventana.document.close()
+                                  ventana.focus()
+                                  setTimeout(() => { ventana.print(); ventana.close(); }, 300)
+                                }}
+                                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold shrink-0 ${dm ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'}`}
+                                title="Imprimir etiqueta"
+                              >
+                                <Printer size={12} />
+                                Imprimir
+                              </button>
+                            </div>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                       </tr>
                     ))}

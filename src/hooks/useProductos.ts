@@ -10,6 +10,7 @@ import type {
   ProductoVarianteForm,
   NuevaPromocionPayload,
 } from '../types'
+import { generarCodigoBarrasEAN13 } from '../utils/generarCodigoBarras'
 
 type ProductosHookOptions = {
   onVariantesReload?: () => Promise<unknown>
@@ -173,6 +174,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
             precioAdicional: v.PrecioAdicional,
             stockActual: v.StockActual,
             codigoSKU: v.CodigoSKU ?? '',
+            codigoBarras: v.CodigoBarras ?? '',
           })),
       )
     },
@@ -182,7 +184,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
   const addVariante = useCallback(() => {
     setVariantes((prev) => [
       ...prev,
-      { atributo: 'Talla', valor: '', precioAdicional: 0, stockActual: 0, codigoSKU: '' },
+      { atributo: 'Talla', valor: '', precioAdicional: 0, stockActual: 0, codigoSKU: '', codigoBarras: '' },
     ])
   }, [])
 
@@ -273,6 +275,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
           ? `${API_BASE_URL}/productos/${editando!.Id}`
           : `${API_BASE_URL}/productos`
         const method = isEdit ? 'PUT' : 'POST'
+        const codigoBarrasProducto = codigoBarras.trim() || generarCodigoBarrasEAN13()
         const response = await fetch(url, {
           method,
           headers: {
@@ -282,7 +285,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
           body: JSON.stringify({
             nombre,
             codigoInterno,
-            codigoBarras: codigoBarras || null,
+            codigoBarras: codigoBarrasProducto || null,
             proveedorId,
             categoriaId,
             descripcion: descripcion || null,
@@ -328,6 +331,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
 
         const variantesToSync = variantes.filter((v) => v.valor.trim() !== '')
         for (const v of variantesToSync) {
+          const codigoBarrasFinal = v.codigoBarras?.trim() || generarCodigoBarrasEAN13()
           const payload = {
             productoId: productId,
             atributo: v.atributo,
@@ -335,6 +339,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
             stockActual: v.stockActual,
             precioAdicional: v.precioAdicional,
             codigoSKU: v.codigoSKU.trim() || null,
+            codigoBarras: codigoBarrasFinal || null,
           }
           if (v.id != null && isEdit) {
             const putRes = await fetch(
@@ -350,6 +355,7 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
                   stockActual: payload.stockActual,
                   precioAdicional: payload.precioAdicional,
                   codigoSKU: payload.codigoSKU,
+                  codigoBarras: payload.codigoBarras,
                 }),
               },
             )

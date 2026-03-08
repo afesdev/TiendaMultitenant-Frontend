@@ -6,13 +6,14 @@ import {
   Filter,
   Pencil,
   Trash2,
-  Hash,
   ChevronRight,
   ChevronLeft,
   XCircle,
   RefreshCw,
+  Printer,
 } from 'lucide-react'
 import type { ProductoVariante } from '../types'
+import { BarcodeMini } from '../components/BarcodeMini'
 
 interface VariantesViewProps {
   variantes: ProductoVariante[]
@@ -63,6 +64,7 @@ export function VariantesView({
         !lowerSearch ||
         v.ProductoNombre.toLowerCase().includes(lowerSearch) ||
         (v.CodigoSKU ?? '').toLowerCase().includes(lowerSearch) ||
+        (v.CodigoBarras ?? '').toLowerCase().includes(lowerSearch) ||
         v.CodigoInterno.toLowerCase().includes(lowerSearch) ||
         v.Valor.toLowerCase().includes(lowerSearch) ||
         v.Atributo.toLowerCase().includes(lowerSearch)
@@ -127,7 +129,7 @@ export function VariantesView({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             type="text"
-            placeholder="Buscar por producto, SKU, valor o atributo..."
+            placeholder="Buscar por producto, SKU, código de barras, valor o atributo..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/50 ${
@@ -184,7 +186,7 @@ export function VariantesView({
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">Atributo / Valor</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Inventario</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Precio Adicional</th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">SKU / Ref</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider">SKU / Cód. barras</th>
                 <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider">Acciones</th>
               </tr>
             </thead>
@@ -248,12 +250,53 @@ export function VariantesView({
                       })}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2 text-xs font-mono">
-                      <Hash size={12} className="opacity-40" />
-                      <span className={v.CodigoSKU ? textPrimary : textMuted}>
-                        {v.CodigoSKU ?? 'Sin SKU'}
-                      </span>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1 text-xs font-mono min-w-0">
+                      {v.CodigoSKU ? (
+                        <span className={`${textPrimary} truncate`} title={v.CodigoSKU}>SKU: {v.CodigoSKU}</span>
+                      ) : null}
+                      {v.CodigoBarras ? (
+                        <>
+                          <BarcodeMini codigo={v.CodigoBarras} height={28} className="my-1" />
+                          <span className={`${textSecondary} truncate`} title={v.CodigoBarras}><span className="opacity-75">Barras:</span> {v.CodigoBarras}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const nombre = `${v.ProductoNombre} (${v.Atributo}: ${v.Valor})`
+                              const codigoEsc = (v.CodigoBarras ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+                              const nombreEsc = nombre.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+                              const precioTexto = v.PrecioAdicional > 0
+                                ? `Precio + ${v.PrecioAdicional.toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 })}`
+                                : ''
+                              const ventana = window.open('', '_blank', 'width=400,height=320')
+                              if (!ventana) return
+                              ventana.document.write(`
+                                <!DOCTYPE html>
+                                <html>
+                                <head><title>Etiqueta - ${nombreEsc}</title><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script></head>
+                                <body style="margin:0;padding:16px;font-family:sans-serif;text-align:center">
+                                  <p style="font-weight:bold;margin:0 0 4px 0">${nombreEsc}</p>
+                                  ${precioTexto ? `<p style="font-size:14px;font-weight:bold;margin:0 0 8px 0">${precioTexto}</p>` : ''}
+                                  <div id="bc"><\/div>
+                                  <script>try{ JsBarcode("#bc","${codigoEsc}",{format:"CODE128",width:2,height:50,displayValue:true}); }catch(e){ document.getElementById("bc").innerText="${(v.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }<\/script>
+                                </body>
+                                </html>
+                              `)
+                              ventana.document.close()
+                              ventana.focus()
+                              setTimeout(() => { ventana.print(); ventana.close(); }, 300)
+                            }}
+                            className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold w-fit mt-1 ${dm ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'}`}
+                            title="Imprimir etiqueta"
+                          >
+                            <Printer size={12} />
+                            Imprimir
+                          </button>
+                        </>
+                      ) : null}
+                      {!v.CodigoSKU && !v.CodigoBarras && (
+                        <span className={textMuted}>—</span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">

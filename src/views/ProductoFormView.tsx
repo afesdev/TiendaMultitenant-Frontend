@@ -15,9 +15,11 @@ import {
   Download,
   Barcode,
   Percent,
+  RefreshCw,
 } from 'lucide-react'
 import type { FormEvent } from 'react'
 import type { Categoria, Producto, ProductoImagenForm, ProductoVarianteForm, Proveedor } from '../types'
+import { generarCodigoBarrasEAN13 } from '../utils/generarCodigoBarras'
 
 const cardClass = (dm: boolean) =>
   dm
@@ -706,6 +708,15 @@ export function ProductoFormView({
                         <label className={labelClass(textPrimary)}>SKU</label>
                         <input type="text" value={v.codigoSKU} onChange={(e) => onUpdateVariante(index, 'codigoSKU', e.target.value)} placeholder="Opcional" className={`${inputClass(dm)} font-mono text-sm`} />
                       </div>
+                      <div className="w-full md:min-w-[140px]">
+                        <label className={labelClass(textPrimary)}>Cód. barras</label>
+                        <div className="flex gap-1">
+                          <input type="text" value={v.codigoBarras} onChange={(e) => onUpdateVariante(index, 'codigoBarras', e.target.value)} placeholder="Opcional" className={`${inputClass(dm)} font-mono text-sm flex-1 min-w-0`} />
+                          <button type="button" onClick={() => onUpdateVariante(index, 'codigoBarras', generarCodigoBarrasEAN13())} className={`p-2.5 rounded-xl shrink-0 ${dm ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'}`} title="Generar código">
+                            <RefreshCw size={14} />
+                          </button>
+                        </div>
+                      </div>
                       <button type="button" onClick={() => onRemoveVariante(index)} className={`self-end md:self-auto p-2.5 rounded-xl transition-colors ${dm ? 'text-slate-400 hover:bg-slate-700 hover:text-red-400' : 'text-slate-500 hover:bg-red-50 hover:text-red-600'}`} title="Quitar variante">
                         <Trash2 size={20} />
                       </button>
@@ -750,7 +761,13 @@ export function ProductoFormView({
                 <div className="space-y-3">
                   <div>
                     <label className={labelClass(textPrimary)}>Código de barras</label>
-                    <input type="text" value={prodCodigoBarras} onChange={(e) => setProdCodigoBarras(e.target.value)} className={`${inputClass(dm)} font-mono`} placeholder="770... o cualquier texto (CODE128)" />
+                    <div className="flex gap-2">
+                      <input type="text" value={prodCodigoBarras} onChange={(e) => setProdCodigoBarras(e.target.value)} className={`${inputClass(dm)} font-mono flex-1`} placeholder="770... o cualquier texto (CODE128)" />
+                      <button type="button" onClick={() => setProdCodigoBarras(generarCodigoBarrasEAN13())} className={`flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-semibold shrink-0 ${dm ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/40' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30'}`} title="Generar código automático">
+                        <RefreshCw size={14} />
+                        Generar
+                      </button>
+                    </div>
                   </div>
                   {prodCodigoBarras.trim() && (
                     <div className={`rounded-xl border p-3 sm:p-4 ${dm ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>

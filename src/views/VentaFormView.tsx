@@ -307,6 +307,74 @@ export function VentaFormView({
   const agregarPorCodigoBarras = async (codigo: string): Promise<boolean> => {
     const codigoTrim = codigo.trim()
     if (!codigoTrim) return false
+
+    // 1. Buscar primero en variantes (cada variante puede tener su propio código)
+    const variante = variantes.find(
+      (v) => v.CodigoBarras && v.CodigoBarras.trim() === codigoTrim,
+    )
+    if (variante) {
+      const producto = productos.find((p) => p.Id === variante.Producto_Id)
+      if (!producto) return false
+      let precioBase =
+        tipoVenta === 'MAYORISTA' && producto.PrecioMayor != null
+          ? producto.PrecioMayor
+          : producto.PrecioDetal
+      precioBase += variante.PrecioAdicional ?? 0
+      try {
+        const res = await fetch(`${API_BASE_URL}/public/promociones/calcular`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tiendaSlug,
+            items: [
+              {
+                productoId: producto.Id,
+                varianteId: variante.Id,
+                cantidad: 1,
+                precioBase,
+              },
+            ],
+          }),
+        })
+        if (res.ok) {
+          const data = (await res.json()) as Array<{ precioFinal: number }>
+          const final = data[0]?.precioFinal
+          if (typeof final === 'number') precioBase = final
+        }
+      } catch {
+        // mantener precioBase
+      }
+      const yaEnLinea = lineas.find(
+        (l) => l.productoId === producto.Id && l.varianteId === variante.Id,
+      )
+      if (yaEnLinea) {
+        const idx = lineas.indexOf(yaEnLinea)
+        setLineas((prev) =>
+          prev.map((l, i) =>
+            i === idx ? { ...l, cantidad: l.cantidad + 1 } : l,
+          ),
+        )
+      } else {
+        setLineas((prev) => [
+          ...prev,
+          {
+            productoId: producto.Id,
+            etiqueta: `${producto.Nombre} (${variante.Atributo}: ${variante.Valor})`,
+            cantidad: 1,
+            precioUnitario: precioBase,
+            varianteId: variante.Id,
+            atributoVariante: variante.Atributo,
+            valorVariante: variante.Valor,
+            codigoSKUVariante: variante.CodigoSKU ?? null,
+          },
+        ])
+      }
+      setScanInput('')
+      scanInputRef.current?.focus()
+      return true
+    }
+
+    // 2. Si no hay variante, buscar en productos
     const producto = productos.find(
       (p) => p.CodigoBarras && p.CodigoBarras.trim() === codigoTrim,
     )
@@ -314,7 +382,7 @@ export function VentaFormView({
       void Swal.fire({
         icon: 'warning',
         title: 'No encontrado',
-        text: `No hay producto con código de barras "${codigoTrim}"`,
+        text: `No hay producto ni variante con código de barras "${codigoTrim}"`,
       })
       return false
     }

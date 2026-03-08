@@ -62,6 +62,7 @@ export interface ProductoDetalleVariante {
   PrecioAdicional: number
   StockActual: number
   CodigoSKU: string | null
+  CodigoBarras: string | null
 }
 
 export interface ProductoDetalleMovimiento {
@@ -164,6 +165,7 @@ export interface ProductoVariante {
   PrecioAdicional: number
   StockActual: number
   CodigoSKU: string | null
+  CodigoBarras: string | null
 }
 
 /** Variante en el formulario de producto (crear/editar). id solo si ya existe en BD. */
@@ -174,6 +176,7 @@ export interface ProductoVarianteForm {
   precioAdicional: number
   stockActual: number
   codigoSKU: string
+  codigoBarras: string
 }
 
 export interface VentaResumen {

@@ -810,6 +810,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
         varStock={variantes.stock}
         varPrecioAdicional={variantes.precioAdicional}
         varSku={variantes.sku}
+        varCodigoBarras={variantes.codigoBarras}
         onClose={() => variantes.setModalOpen(false)}
         onChangeProducto={variantes.setProductoId}
         onChangeAtributo={variantes.setAtributo}
@@ -817,6 +818,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
         onChangeStock={variantes.setStock}
         onChangePrecioAdicional={variantes.setPrecioAdicional}
         onChangeSku={variantes.setSku}
+        onChangeCodigoBarras={variantes.setCodigoBarras}
         onSubmit={variantes.guardar}
       />
 
