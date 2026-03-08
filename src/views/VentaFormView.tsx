@@ -308,9 +308,14 @@ export function VentaFormView({
     const codigoTrim = codigo.trim()
     if (!codigoTrim) return false
 
+    const normalizar = (c: string | number | null | undefined) =>
+      String(c ?? '').trim()
+
+    const codigoNorm = normalizar(codigoTrim)
+
     // 1. Buscar primero en variantes (cada variante puede tener su propio código)
     const variante = variantes.find(
-      (v) => v.CodigoBarras && v.CodigoBarras.trim() === codigoTrim,
+      (v) => codigoNorm && normalizar(v.CodigoBarras) === codigoNorm,
     )
     if (variante) {
       const producto = productos.find((p) => p.Id === variante.Producto_Id)
@@ -376,7 +381,7 @@ export function VentaFormView({
 
     // 2. Si no hay variante, buscar en productos
     const producto = productos.find(
-      (p) => p.CodigoBarras && p.CodigoBarras.trim() === codigoTrim,
+      (p) => codigoNorm && normalizar(p.CodigoBarras) === codigoNorm,
     )
     if (!producto) {
       void Swal.fire({
