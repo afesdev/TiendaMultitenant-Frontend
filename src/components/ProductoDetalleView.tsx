@@ -459,8 +459,8 @@ export function ProductoDetalleView({
                                     <body style="margin:0;padding:16px;font-family:sans-serif;text-align:center">
                                       <p style="font-weight:bold;margin:0 0 4px 0">${nombreEsc}</p>
                                       <p style="font-size:16px;font-weight:bold;margin:0 0 8px 0">${fmt(precio)}</p>
-                                      <div id="bc"><\/div>
-                                      <script>try{ JsBarcode("#bc","${codigoEsc}",{format:"CODE128",width:2,height:50,displayValue:true}); }catch(e){ document.getElementById("bc").innerText="${(v.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }<\/script>
+                                      <svg id="bc"><\/svg>
+                                      <script>try{ JsBarcode("#bc","${codigoEsc}",{format:"CODE128",width:2,height:50,displayValue:true}); }catch(e){ document.getElementById("bc").textContent="${(v.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }<\/script>
                                     </body>
                                     </html>
                                   `)

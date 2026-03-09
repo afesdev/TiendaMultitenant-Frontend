@@ -106,14 +106,14 @@ export function ProductosView({
       <div class="etiqueta" style="border:1px solid #ddd;padding:12px;text-align:center;page-break-inside:avoid">
         <p style="font-weight:bold;font-size:12px;margin:0 0 4px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;margin-left:auto;margin-right:auto">${p.Nombre.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
         <p style="font-size:16px;font-weight:bold;margin:0 0 8px 0">${fmt(p.PrecioDetal)}</p>
-        <div id="bc-${p.Id}"></div>
+        <svg id="bc-${p.Id}"></svg>
       </div>`,
       )
       .join('')
     const scripts = seleccionadosConBarras
       .map(
         (p) => `
-      try { JsBarcode("#bc-${p.Id}", "${(p.CodigoBarras ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", { format: "CODE128", width: 1.5, height: 50, displayValue: true, fontSize: 10 }); } catch(e) { document.getElementById("bc-${p.Id}").innerText = "${(p.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }`,
+      try { JsBarcode("#bc-${p.Id}", "${(p.CodigoBarras ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}", { format: "CODE128", width: 1.5, height: 50, displayValue: true, fontSize: 10 }); } catch(e) { const el = document.getElementById("bc-${p.Id}"); if (el) el.textContent = "${(p.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }`,
       )
       .join('\n')
     ventana.document.write(`
