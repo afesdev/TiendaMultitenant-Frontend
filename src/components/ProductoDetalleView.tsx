@@ -422,65 +422,175 @@ export function ProductoDetalleView({
                       <th className="px-5 py-3 text-right text-xs font-bold uppercase">Precio +</th>
                       <th className="px-5 py-3 text-left text-xs font-bold uppercase">SKU</th>
                       <th className="px-5 py-3 text-left text-xs font-bold uppercase">Cód. barras</th>
+                      <th className="px-5 py-3 text-left text-xs font-bold uppercase">Imágenes</th>
                     </tr>
                   </thead>
                   <tbody className={`divide-y ${divider}`}>
-                    {variantes.map((v) => (
-                      <tr key={v.Id} className={dm ? 'hover:bg-slate-800/30' : 'hover:bg-gray-50'}>
-                        <td className={`px-5 py-3 text-sm ${textPrimary}`}>{v.Atributo}</td>
-                        <td className={`px-5 py-3 text-sm ${textPrimary}`}>{v.Valor}</td>
-                        <td className={`px-5 py-3 text-sm text-right font-mono ${textPrimary}`}>
-                          {v.StockActual}
-                        </td>
-                        <td className={`px-5 py-3 text-sm text-right font-mono ${textPrimary}`}>
-                          {v.PrecioAdicional > 0 ? `+${fmt(v.PrecioAdicional)}` : '—'}
-                        </td>
-                        <td className={`px-5 py-3 text-sm font-mono ${textSecondary}`}>
-                          {v.CodigoSKU ?? '—'}
-                        </td>
-                        <td className={`px-5 py-3 ${textSecondary}`}>
-                          {v.CodigoBarras ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <BarcodeMini codigo={v.CodigoBarras} height={32} className="shrink-0" />
-                              <span className="text-xs font-mono hidden sm:inline">{v.CodigoBarras}</span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nombre = `${prod.Nombre} (${v.Atributo}: ${v.Valor})`
-                                  const precio = prod.PrecioDetal + (v.PrecioAdicional ?? 0)
-                                  const codigoEsc = (v.CodigoBarras ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-                                  const nombreEsc = nombre.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-                                  const ventana = window.open('', '_blank', 'width=400,height=320')
-                                  if (!ventana) return
-                                  ventana.document.write(`
-                                    <!DOCTYPE html>
-                                    <html>
-                                    <head><title>Etiqueta - ${nombreEsc}</title><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script></head>
-                                    <body style="margin:0;padding:16px;font-family:sans-serif;text-align:center">
-                                      <p style="font-weight:bold;margin:0 0 4px 0">${nombreEsc}</p>
-                                      <p style="font-size:16px;font-weight:bold;margin:0 0 8px 0">${fmt(precio)}</p>
-                                      <svg id="bc"><\/svg>
-                                      <script>try{ JsBarcode("#bc","${codigoEsc}",{format:"CODE128",width:2,height:50,displayValue:true}); }catch(e){ document.getElementById("bc").textContent="${(v.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }<\/script>
-                                    </body>
-                                    </html>
-                                  `)
-                                  ventana.document.close()
-                                  ventana.focus()
-                                  setTimeout(() => { ventana.print(); ventana.close(); }, 300)
-                                }}
-                                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold shrink-0 ${dm ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'}`}
-                                title="Imprimir etiqueta"
-                              >
-                                <Printer size={12} />
-                                Imprimir
-                              </button>
+                    {variantes.map((v) => {
+                      const imgs = (v as typeof v & { Imagenes?: unknown }).Imagenes as
+                        | {
+                            Id: number
+                            Url: string
+                            EsPrincipal: boolean
+                            EtiquetaAngulo: string | null
+                          }[]
+                        | undefined
+                      const count = imgs?.length ?? 0
+                      const principal =
+                        imgs?.find((i) => i.EsPrincipal) ?? imgs?.[0] ?? null
+                      const angulos =
+                        imgs && imgs.length > 0
+                          ? Array.from(
+                              new Set(
+                                imgs
+                                  .map((i) => i.EtiquetaAngulo)
+                                  .filter(
+                                    (x): x is string => Boolean(x && x.trim()),
+                                  ),
+                              ),
+                            )
+                          : []
+
+                      return (
+                        <tr
+                          key={v.Id}
+                          className={
+                            dm ? 'hover:bg-slate-800/30' : 'hover:bg-gray-50'
+                          }
+                        >
+                          <td className={`px-5 py-3 text-sm ${textPrimary}`}>
+                            {v.Atributo}
+                          </td>
+                          <td className={`px-5 py-3 text-sm ${textPrimary}`}>
+                            <div className="flex items-center gap-2">
+                              {v.Atributo === 'Color' && (v as any).ColorHex && (
+                                <span
+                                  className="h-4 w-4 rounded-full border border-slate-300 dark:border-slate-600"
+                                  style={{
+                                    backgroundColor: ((v as any).ColorHex as string) ?? '#9ca3af',
+                                  }}
+                                  title={(v as any).ColorNombre ?? v.Valor}
+                                />
+                              )}
+                              <span>{v.Valor}</span>
                             </div>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td
+                            className={`px-5 py-3 text-sm text-right font-mono ${textPrimary}`}
+                          >
+                            {v.StockActual}
+                          </td>
+                          <td
+                            className={`px-5 py-3 text-sm text-right font-mono ${textPrimary}`}
+                          >
+                            {v.PrecioAdicional > 0
+                              ? `+${fmt(v.PrecioAdicional)}`
+                              : '—'}
+                          </td>
+                          <td
+                            className={`px-5 py-3 text-sm font-mono ${textSecondary}`}
+                          >
+                            {v.CodigoSKU ?? '—'}
+                          </td>
+                          <td className={`px-5 py-3 ${textSecondary}`}>
+                            {v.CodigoBarras ? (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <BarcodeMini
+                                  codigo={v.CodigoBarras}
+                                  height={32}
+                                  className="shrink-0"
+                                />
+                                <span className="text-xs font-mono hidden sm:inline">
+                                  {v.CodigoBarras}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const nombre = `${prod.Nombre} (${v.Atributo}: ${v.Valor})`
+                                    const precio =
+                                      prod.PrecioDetal +
+                                      (v.PrecioAdicional ?? 0)
+                                    const codigoEsc = (
+                                      v.CodigoBarras ?? ''
+                                    )
+                                      .replace(/\\/g, '\\\\')
+                                      .replace(/"/g, '\\"')
+                                    const nombreEsc = nombre
+                                      .replace(/</g, '&lt;')
+                                      .replace(/>/g, '&gt;')
+                                      .replace(/"/g, '&quot;')
+                                    const ventana = window.open(
+                                      '',
+                                      '_blank',
+                                      'width=400,height=320',
+                                    )
+                                    if (!ventana) return
+                                    ventana.document.write(`
+                                      <!DOCTYPE html>
+                                      <html>
+                                      <head><title>Etiqueta - ${nombreEsc}</title><script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script></head>
+                                      <body style="margin:0;padding:16px;font-family:sans-serif;text-align:center">
+                                        <p style="font-weight:bold;margin:0 0 4px 0">${nombreEsc}</p>
+                                        <p style="font-size:16px;font-weight:bold;margin:0 0 8px 0">${fmt(precio)}</p>
+                                        <svg id="bc"><\/svg>
+                                        <script>try{ JsBarcode("#bc","${codigoEsc}",{format:"CODE128",width:2,height:50,displayValue:true}); }catch(e){ document.getElementById("bc").textContent="${(v.CodigoBarras ?? '').replace(/"/g, '&quot;')}"; }<\/script>
+                                      </body>
+                                      </html>
+                                    `)
+                                    ventana.document.close()
+                                    ventana.focus()
+                                    setTimeout(() => {
+                                      ventana.print()
+                                      ventana.close()
+                                    }, 300)
+                                  }}
+                                  className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold shrink-0 ${
+                                    dm
+                                      ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                                      : 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20'
+                                  }`}
+                                  title="Imprimir etiqueta"
+                                >
+                                  <Printer size={12} />
+                                  Imprimir
+                                </button>
+                              </div>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-sm">
+                            {count === 0 ? (
+                              <span className={textSecondary}>Sin propias</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                {principal && (
+                                  <div className="h-9 w-9 rounded-lg overflow-hidden border border-slate-600/60 shrink-0">
+                                    <img
+                                      src={principal.Url}
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
+                                <div className="flex flex-col">
+                                  <span className={textPrimary}>
+                                    {count} imagen
+                                    {count > 1 ? 'es' : ''}
+                                  </span>
+                                  {angulos.length > 0 && (
+                                    <span className={`text-[11px] ${textSecondary}`}>
+                                      Ángulos:{' '}
+                                      {angulos.join(', ')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

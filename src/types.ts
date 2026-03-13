@@ -55,6 +55,16 @@ export interface ProductoImagen {
   Orden: number
 }
 
+export interface ProductoVarianteImagen {
+  Id: number
+  Producto_Id: number
+  Variacion_Id: number
+  Url: string
+  EtiquetaAngulo: string | null
+  EsPrincipal: boolean
+  Orden: number
+}
+
 export interface ProductoDetalleVariante {
   Id: number
   Atributo: string
@@ -63,6 +73,10 @@ export interface ProductoDetalleVariante {
   StockActual: number
   CodigoSKU: string | null
   CodigoBarras: string | null
+  Color_Id?: number | null
+  ColorNombre?: string | null
+  ColorHex?: string | null
+  Imagenes?: ProductoVarianteImagen[]
 }
 
 export interface ProductoDetalleMovimiento {
@@ -153,6 +167,16 @@ export interface Proveedor {
   Telefono: string | null
   Email: string | null
   Activo: boolean
+}
+
+export interface Color {
+  Id: number
+  Nombre: string
+  CodigoHex: string | null
+  CodigoInterno: string | null
+  Activo: boolean
+  FechaCreacion: string
+  FechaModificacion: string | null
 }
 
 export interface ProductoVariante {

@@ -308,8 +308,13 @@ export function VentaFormView({
     const codigoTrim = codigo.trim()
     if (!codigoTrim) return false
 
-    const normalizar = (c: string | number | null | undefined) =>
-      String(c ?? '').trim()
+    const normalizar = (c: string | number | null | undefined) => {
+      const raw = String(c ?? '').trim()
+      if (!raw) return ''
+      // Unificar mayúsculas y quitar separadores comunes (espacios, guiones, subrayados)
+      // para tolerar códigos escritos o impresos con formato distinto.
+      return raw.replace(/[\s\-_]/g, '').toUpperCase()
+    }
 
     const codigoNorm = normalizar(codigoTrim)
 

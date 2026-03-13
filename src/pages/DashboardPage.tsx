@@ -17,6 +17,7 @@ import { ProductosView } from '../views/ProductosView'
 import { ProductoFormView } from '../views/ProductoFormView'
 import { VariantesView } from '../views/VariantesView'
 import { ProveedoresView } from '../views/ProveedoresView'
+import { ColoresView } from '../views/ColoresView'
 import { RepartidoresView } from '../views/RepartidoresView'
 import { ClientesView } from '../views/ClientesView'
 import { VentasView } from '../views/VentasView'
@@ -34,6 +35,7 @@ import {
   useCategorias,
   useMovimientos,
   useProveedores,
+  useColores,
   useRepartidores,
   useClientes,
   useVariantes,
@@ -79,6 +81,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
   const categorias = useCategorias(token)
   const movimientos = useMovimientos(token)
   const proveedores = useProveedores(token)
+  const colores = useColores(token)
   const repartidores = useRepartidores(token)
   const clientes = useClientes(token)
   const variantes = useVariantes(token)
@@ -132,6 +135,7 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
       void variantes.cargar()
     }
     if (activePage === 'proveedores') void proveedores.cargar()
+    if (activePage === 'colores') void colores.cargar()
     if (activePage === 'clientes') void clientes.cargar()
     if (activePage === 'repartidores') void repartidores.cargar()
     if (activePage === 'ventas') {
@@ -377,6 +381,11 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               setProdStockActual={productos.setStockActual}
               setProdVisible={productos.setVisible}
               onSubmit={productos.guardar}
+              colores={colores.colores}
+              listarImagenesVariante={productos.listarImagenesVariante}
+              subirImagenVariante={productos.subirImagenVariante}
+              eliminarImagenVariante={productos.eliminarImagenVariante}
+              marcarPrincipalImagenVariante={productos.marcarPrincipalImagenVariante}
               {
                 ...({
                   onCrearPromocionForProducto: () => {
@@ -453,6 +462,37 @@ export function DashboardPage({ token, user, tienda, onLogout }: DashboardPagePr
               onExportarExcel={ventas.exportarExcel}
               onExportarPdf={ventas.exportarPdf}
               onImprimirTicket={handleImprimirTicket}
+            />
+          )}
+
+          {/* Colores */}
+          {activePage === 'colores' && (
+            <ColoresView
+              colores={colores.colores}
+              loading={colores.loading}
+              dm={dm}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              textMuted={textMuted}
+              tableBorder={tableBorder}
+              tableHead={tableHead}
+              tableRow={tableRow}
+              btnSecondary={btnSecondary}
+              onNuevo={colores.abrirNuevo}
+              onEditar={colores.abrirEditar}
+              onDesactivar={colores.desactivar}
+              modalOpen={colores.modalOpen}
+              editando={colores.editando}
+              formNombre={colores.nombre}
+              formCodigoHex={colores.codigoHex}
+              formCodigoInterno={colores.codigoInterno}
+              formActivo={colores.activo}
+              onChangeNombre={colores.setNombre}
+              onChangeCodigoHex={colores.setCodigoHex}
+              onChangeCodigoInterno={colores.setCodigoInterno}
+              onChangeActivo={colores.setActivo}
+              onCloseModal={() => colores.setModalOpen(false)}
+              onSubmit={colores.guardar}
             />
           )}
 

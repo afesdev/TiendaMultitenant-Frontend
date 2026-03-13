@@ -8,6 +8,7 @@ import type {
   ProductoImagenForm,
   ProductoVariante,
   ProductoVarianteForm,
+  ProductoVarianteImagen,
   NuevaPromocionPayload,
 } from '../types'
 import { generarCodigoBarrasEAN13 } from '../utils/generarCodigoBarras'
@@ -256,6 +257,157 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
       )
     },
     [token, editando, imagenes],
+  )
+
+  const listarImagenesVariante = useCallback(
+    async (variacionId: number): Promise<ProductoVarianteImagen[]> => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/productos/variantes/${encodeURIComponent(variacionId)}/imagenes`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
+        if (!res.ok) {
+          throw new Error('Error al cargar imágenes de la variante')
+        }
+        const data = (await res.json()) as ProductoVarianteImagen[]
+        return data
+      } catch (err) {
+        console.error(err)
+        void Swal.fire(
+          'Error',
+          'No se pudieron cargar las imágenes de la variante',
+          'error',
+        )
+        return []
+      }
+    },
+    [token],
+  )
+
+  const subirImagenVariante = useCallback(
+    async (
+      variacionId: number,
+      file: File,
+      options: { etiquetaAngulo?: string | null; esPrincipal?: boolean } = {},
+    ): Promise<boolean> => {
+      try {
+        const base64 = await new Promise<string | null>((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () =>
+            resolve(typeof r.result === 'string' ? r.result : null)
+          r.onerror = () => reject(r.error)
+          r.readAsDataURL(file)
+        })
+        if (!base64) return false
+
+        const res = await fetch(
+          `${API_BASE_URL}/productos/variantes/${encodeURIComponent(variacionId)}/imagenes`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              imagenBase64: base64,
+              esPrincipal: options.esPrincipal ?? false,
+              etiquetaAngulo: options.etiquetaAngulo ?? null,
+            }),
+          },
+        )
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw new Error(
+            (body as { message?: string } | null)?.message ??
+              'Error al subir imagen de variante',
+          )
+        }
+        return true
+      } catch (err) {
+        console.error(err)
+        void Swal.fire(
+          'Error',
+          err instanceof Error
+            ? err.message
+            : 'Error al subir imagen de variante',
+          'error',
+        )
+        return false
+      }
+    },
+    [token],
+  )
+
+  const eliminarImagenVariante = useCallback(
+    async (imagenId: number): Promise<boolean> => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/productos/variantes/imagenes/${encodeURIComponent(
+            imagenId,
+          )}`,
+          {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw new Error(
+            (body as { message?: string } | null)?.message ??
+              'Error al eliminar imagen de variante',
+          )
+        }
+        return true
+      } catch (err) {
+        console.error(err)
+        void Swal.fire(
+          'Error',
+          err instanceof Error
+            ? err.message
+            : 'Error al eliminar imagen de variante',
+          'error',
+        )
+        return false
+      }
+    },
+    [token],
+  )
+
+  const marcarPrincipalImagenVariante = useCallback(
+    async (imagenId: number): Promise<boolean> => {
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/productos/variantes/imagenes/${encodeURIComponent(
+            imagenId,
+          )}/principal`,
+          {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        )
+        if (!res.ok) {
+          const body = await res.json().catch(() => null)
+          throw new Error(
+            (body as { message?: string } | null)?.message ??
+              'Error al marcar imagen principal de variante',
+          )
+        }
+        return true
+      } catch (err) {
+        console.error(err)
+        void Swal.fire(
+          'Error',
+          err instanceof Error
+            ? err.message
+            : 'Error al marcar imagen principal de variante',
+          'error',
+        )
+        return false
+      }
+    },
+    [token],
   )
 
   const guardar = useCallback(
@@ -712,6 +864,10 @@ export function useProductos(token: string, options: ProductosHookOptions = {}) 
     addImagen,
     removeImagen,
     setPrincipalImagen,
+    listarImagenesVariante,
+    subirImagenVariante,
+    eliminarImagenVariante,
+    marcarPrincipalImagenVariante,
     variantes,
     addVariante,
     removeVariante,

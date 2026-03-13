@@ -18,7 +18,15 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import type { FormEvent } from 'react'
-import type { Categoria, Producto, ProductoImagenForm, ProductoVarianteForm, Proveedor } from '../types'
+import type {
+  Categoria,
+  Producto,
+  ProductoImagenForm,
+  ProductoVarianteForm,
+  ProductoVarianteImagen,
+  Proveedor,
+  Color,
+} from '../types'
 import { generarCodigoBarrasEAN13 } from '../utils/generarCodigoBarras'
 
 const cardClass = (dm: boolean) =>
@@ -109,6 +117,15 @@ interface ProductoFormViewProps {
   setPromoFechaFin?: (v: string) => void
   promoActiva?: boolean
   setPromoActiva?: (v: boolean) => void
+  colores?: Color[]
+  listarImagenesVariante: (variacionId: number) => Promise<ProductoVarianteImagen[]>
+  subirImagenVariante: (
+    variacionId: number,
+    file: File,
+    options?: { etiquetaAngulo?: string | null; esPrincipal?: boolean },
+  ) => Promise<boolean>
+  eliminarImagenVariante: (imagenId: number) => Promise<boolean>
+  marcarPrincipalImagenVariante: (imagenId: number) => Promise<boolean>
 }
 
 export function ProductoFormView({
@@ -175,10 +192,23 @@ export function ProductoFormView({
   setPromoFechaFin,
   promoActiva,
   setPromoActiva,
+  colores,
+  listarImagenesVariante,
+  subirImagenVariante,
+  eliminarImagenVariante,
+  marcarPrincipalImagenVariante,
 }: ProductoFormViewProps) {
   const [activeSection, setActiveSection] = useState<SectionId>('general')
   const barcodeCanvasRef = useRef<HTMLCanvasElement>(null)
   const [barcodeError, setBarcodeError] = useState<string | null>(null)
+  const [varianteImagenesOpen, setVarianteImagenesOpen] = useState<{
+    variacionId: number
+    atributo: string
+    valor: string
+  } | null>(null)
+  const [varianteImagenes, setVarianteImagenes] = useState<ProductoVarianteImagen[]>([])
+  const [loadingVarianteImagenes, setLoadingVarianteImagenes] = useState(false)
+  const [selectedAngulo, setSelectedAngulo] = useState<string>('') // '', 'frente', 'lateral', 'atras', 'detalle'
 
   useEffect(() => {
     const code = prodCodigoBarras.trim()
@@ -206,6 +236,64 @@ export function ProductoFormView({
       setBarcodeError('Código no válido para este formato. Prueba CODE128 (cualquier texto) o EAN-13 (12-13 dígitos).')
     }
   }, [prodCodigoBarras, dm, activeSection])
+
+  const abrirImagenesVariante = async (v: ProductoVarianteForm) => {
+    if (!v.id) return
+    setVarianteImagenesOpen({ variacionId: v.id, atributo: v.atributo, valor: v.valor })
+    setLoadingVarianteImagenes(true)
+    try {
+      const imgs = await listarImagenesVariante(v.id)
+      setVarianteImagenes(imgs)
+    } finally {
+      setLoadingVarianteImagenes(false)
+    }
+  }
+
+  const manejarUploadVarianteImagen = async (file: File) => {
+    if (!varianteImagenesOpen) return
+    const { variacionId } = varianteImagenesOpen
+    const ok = await subirImagenVariante(variacionId, file, {
+      etiquetaAngulo: selectedAngulo || null,
+      esPrincipal: varianteImagenes.length === 0,
+    })
+    if (!ok) return
+    setLoadingVarianteImagenes(true)
+    try {
+      const imgs = await listarImagenesVariante(variacionId)
+      setVarianteImagenes(imgs)
+    } finally {
+      setLoadingVarianteImagenes(false)
+    }
+  }
+
+  const manejarEliminarVarianteImagen = async (imagenId: number) => {
+    if (!varianteImagenesOpen) return
+    const { variacionId } = varianteImagenesOpen
+    const ok = await eliminarImagenVariante(imagenId)
+    if (!ok) return
+    setVarianteImagenes((prev) => prev.filter((i) => i.Id !== imagenId))
+    setLoadingVarianteImagenes(true)
+    try {
+      const imgs = await listarImagenesVariante(variacionId)
+      setVarianteImagenes(imgs)
+    } finally {
+      setLoadingVarianteImagenes(false)
+    }
+  }
+
+  const manejarMarcarPrincipalVarianteImagen = async (imagenId: number) => {
+    if (!varianteImagenesOpen) return
+    const { variacionId } = varianteImagenesOpen
+    const ok = await marcarPrincipalImagenVariante(imagenId)
+    if (!ok) return
+    setLoadingVarianteImagenes(true)
+    try {
+      const imgs = await listarImagenesVariante(variacionId)
+      setVarianteImagenes(imgs)
+    } finally {
+      setLoadingVarianteImagenes(false)
+    }
+  }
 
   const descargarCodigoBarras = () => {
     const code = prodCodigoBarras.trim()
@@ -694,7 +782,44 @@ export function ProductoFormView({
                       </div>
                       <div className="w-full md:flex-1 md:min-w-[120px]">
                         <label className={labelClass(textPrimary)}>Valor</label>
-                        <input type="text" value={v.valor} onChange={(e) => onUpdateVariante(index, 'valor', e.target.value)} placeholder="S, M, Rojo..." className={inputClass(dm)} />
+                        {v.atributo === 'Color' && (colores?.length ?? 0) > 0 ? (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={v.valor}
+                              onChange={(e) => onUpdateVariante(index, 'valor', e.target.value)}
+                              className={`flex-1 ${inputClass(dm)}`}
+                            >
+                              <option value="">Selecciona un color…</option>
+                              {colores
+                                ?.filter((c) => c.Activo)
+                                .map((c) => (
+                                  <option key={c.Id} value={c.Nombre}>
+                                    {c.Nombre}
+                                  </option>
+                                ))}
+                            </select>
+                            {(() => {
+                              const match =
+                                colores?.find((c) => c.Nombre === v.valor) ?? null
+                              const hex = match?.CodigoHex?.trim() || '#9ca3af'
+                              return (
+                                <span
+                                  className="h-9 w-9 rounded-lg border border-slate-300 dark:border-slate-600 flex-shrink-0"
+                                  style={{ backgroundColor: hex }}
+                                  title={match ? match.Nombre : 'Color sin hex definido'}
+                                />
+                              )
+                            })()}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            value={v.valor}
+                            onChange={(e) => onUpdateVariante(index, 'valor', e.target.value)}
+                            placeholder="S, M, Rojo..."
+                            className={inputClass(dm)}
+                          />
+                        )}
                       </div>
                       <div className="w-full md:w-20">
                         <label className={labelClass(textPrimary)}>Stock</label>
@@ -717,9 +842,44 @@ export function ProductoFormView({
                           </button>
                         </div>
                       </div>
-                      <button type="button" onClick={() => onRemoveVariante(index)} className={`self-end md:self-auto p-2.5 rounded-xl transition-colors ${dm ? 'text-slate-400 hover:bg-slate-700 hover:text-red-400' : 'text-slate-500 hover:bg-red-50 hover:text-red-600'}`} title="Quitar variante">
-                        <Trash2 size={20} />
-                      </button>
+                      <div className="flex flex-row gap-2 items-end">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveVariante(index)}
+                          className={`p-2.5 rounded-xl transition-colors ${
+                            dm
+                              ? 'text-slate-400 hover:bg-slate-700 hover:text-red-400'
+                              : 'text-slate-500 hover:bg-red-50 hover:text-red-600'
+                          }`}
+                          title="Quitar variante"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!v.id}
+                          onClick={() => {
+                            if (v.id) void abrirImagenesVariante(v)
+                          }}
+                          className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center gap-1.5 ${
+                            v.id
+                              ? dm
+                                ? 'border-emerald-500/60 text-emerald-400 hover:bg-emerald-500/10'
+                                : 'border-emerald-500/40 text-emerald-600 hover:bg-emerald-50'
+                              : dm
+                                ? 'border-slate-700 text-slate-500 cursor-not-allowed opacity-60'
+                                : 'border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                          }`}
+                          title={
+                            v.id
+                              ? 'Gestionar imágenes de esta variante'
+                              : 'Guarda primero el producto para gestionar imágenes por variante'
+                          }
+                        >
+                          <ImageIcon size={14} />
+                          <span>Imágenes por variante</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -808,6 +968,140 @@ export function ProductoFormView({
           )}
         </div>
       </form>
+
+      {varianteImagenesOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-3">
+          <div
+            className={`w-full max-w-3xl rounded-2xl border shadow-xl ${
+              dm ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+            }`}
+          >
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-slate-700/60">
+              <div>
+                <p className={`text-sm font-bold ${textPrimary}`}>
+                  Imágenes de variante ({varianteImagenesOpen.atributo}:{' '}
+                  {varianteImagenesOpen.valor})
+                </p>
+                <p className={`text-xs ${textSecondary}`}>
+                  Opcional. Usa esto, por ejemplo, para asociar fotos a cada
+                  color y ángulo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVarianteImagenesOpen(null)}
+                className={`px-3 py-1.5 text-xs rounded-lg border ${
+                  dm
+                    ? 'border-slate-600 text-slate-300 hover:bg-slate-800'
+                    : 'border-slate-300 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="px-4 sm:px-6 py-4 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex-1">
+                  <label className={labelClass(textPrimary)}>
+                    Ángulo (opcional)
+                  </label>
+                  <select
+                    value={selectedAngulo}
+                    onChange={(e) => setSelectedAngulo(e.target.value)}
+                    className={inputClass(dm)}
+                  >
+                    <option value="">Sin etiqueta</option>
+                    <option value="frente">Frente</option>
+                    <option value="lateral">Lateral</option>
+                    <option value="atras">Atrás</option>
+                    <option value="detalle">Detalle</option>
+                  </select>
+                </div>
+                <label className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-3 cursor-pointer text-xs font-semibold min-w-[180px] max-w-xs self-start sm:self-auto">
+                  <Plus size={16} />
+                  <span>Agregar imagen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) void manejarUploadVarianteImagen(file)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+              </div>
+
+              {loadingVarianteImagenes ? (
+                <p className={`text-sm ${textSecondary}`}>Cargando...</p>
+              ) : varianteImagenes.length === 0 ? (
+                <p className={`text-sm ${textSecondary}`}>
+                  Esta variante aún no tiene imágenes propias. Si no agregas
+                  ninguna, se usarán las imágenes generales del producto.
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {varianteImagenes.map((img) => (
+                    <div
+                      key={img.Id}
+                      className={`relative rounded-xl overflow-hidden border-2 ${
+                        img.EsPrincipal
+                          ? 'border-emerald-500 ring-2 ring-emerald-500/40'
+                          : dm
+                            ? 'border-slate-700'
+                            : 'border-slate-200'
+                      }`}
+                    >
+                      <div className="aspect-square bg-slate-100 dark:bg-slate-800/40">
+                        <img
+                          src={img.Url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="absolute top-2 left-2 flex flex-col gap-1">
+                        {img.EsPrincipal && (
+                          <span className="px-1.5 py-0.5 rounded-md bg-emerald-500 text-white text-[10px] font-bold">
+                            Principal
+                          </span>
+                        )}
+                        {img.EtiquetaAngulo && (
+                          <span className="px-1.5 py-0.5 rounded-md bg-slate-900/70 text-white text-[10px] font-semibold">
+                            {img.EtiquetaAngulo}
+                          </span>
+                        )}
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-900/60 opacity-0 hover:opacity-100 transition-opacity">
+                        {!img.EsPrincipal && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void manejarMarcarPrincipalVarianteImagen(img.Id)
+                            }
+                            className="p-2 rounded-lg bg-white text-slate-900 hover:bg-slate-100"
+                            title="Marcar como principal"
+                          >
+                            <Star size={16} />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void manejarEliminarVarianteImagen(img.Id)}
+                          className="p-2 rounded-lg bg-red-500 text-white hover:bg-red-600"
+                          title="Eliminar imagen"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

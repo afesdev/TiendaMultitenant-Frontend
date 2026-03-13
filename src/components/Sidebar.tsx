@@ -15,6 +15,7 @@ import {
   Bookmark,
   Percent,
   BarChart3,
+  Droplets,
 } from 'lucide-react'
 
 type LucideIcon = React.ComponentType<{ size?: number; className?: string }>
@@ -27,17 +28,28 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'General',
     items: [
       { key: 'dashboard', label: 'Dashboard', Icon: LayoutDashboard },
+      { key: 'reportes', label: 'Reportes', Icon: BarChart3 },
+    ],
+  },
+  {
+    label: 'Catálogo',
+    items: [
       { key: 'categorias', label: 'Categorías', Icon: FolderTree },
       { key: 'productos', label: 'Productos', Icon: Package },
       { key: 'variantes', label: 'Variantes', Icon: Layers },
       { key: 'proveedores', label: 'Proveedores', Icon: Truck },
-      { key: 'clientes', label: 'Clientes', Icon: Users },
+      { key: 'colores', label: 'Colores', Icon: Droplets },
+    ],
+  },
+  {
+    label: 'Operaciones',
+    items: [
       { key: 'ventas', label: 'Ventas', Icon: TrendingUp },
       { key: 'apartados', label: 'Apartados', Icon: Bookmark },
       { key: 'promociones', label: 'Promociones', Icon: Percent },
       { key: 'movimientos', label: 'Movimientos', Icon: Activity },
+      { key: 'clientes', label: 'Clientes', Icon: Users },
       { key: 'repartidores', label: 'Repartidores', Icon: Bike },
-      { key: 'reportes', label: 'Reportes', Icon: BarChart3 },
     ],
   },
   {
