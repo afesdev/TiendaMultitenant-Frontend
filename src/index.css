@@ -7,3 +7,13 @@
 :root {
   font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
+
+/* Scroll vertical suave sin mostrar barra (para sidebar) */
+.sidebar-scroll {
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Edge, Safari */
+}

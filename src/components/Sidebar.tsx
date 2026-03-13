@@ -196,7 +196,7 @@ export function Sidebar({
         </div>
 
         {/* ── Navigation ────────────────────────────────────────────── */}
-        <nav className="flex-1 py-3 px-2 overflow-y-auto">
+        <nav className="flex-1 py-3 px-2 sidebar-scroll">
           {NAV_SECTIONS.map((section, si) => (
             <div key={section.label} className={si > 0 ? 'mt-2' : ''}>
               {/* Section label */}
